@@ -9,6 +9,7 @@ import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.crypto.ECDSASigner;
 import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.JWK;
+import com.nimbusds.jose.util.Base64;
 
 import java.security.interfaces.ECPrivateKey;
 import org.bouncycastle.openssl.PEMException;
@@ -58,6 +59,15 @@ public class JwsHelper {
         */
 
         String s = jwsObject.serialize();
+
+        String[] parts = s.split(".");
+
+        System.out.println(parts.length);
+        /*
+        System.out.println(new Base64(parts[0]).toJSONString());
+        System.out.println(new Base64(parts[1]).toJSONString());
+        System.out.println(new Base64(parts[2]).toJSONString());
+        */
         return s;
     }
 
