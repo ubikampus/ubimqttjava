@@ -22,7 +22,7 @@ public class JwsHelperTest {
             String path = home + "/.private/ubimqtt-testing-key.pem";
 
             byte[] encoded = Files.readAllBytes(Paths.get(path));
-            String privateKeyString = new String(encoded, StandardCharsets.UTF_8);
+            privateKey = new String(encoded, StandardCharsets.UTF_8);
 
         } catch (Exception e) {
             assertEquals(null, e);
