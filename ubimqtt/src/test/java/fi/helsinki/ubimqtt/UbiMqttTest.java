@@ -241,7 +241,19 @@ public class UbiMqttTest {
             String path = home + "/.private/ubimqtt-testing-key.pem";
 
             byte[] encoded = Files.readAllBytes(Paths.get(path));
-            String privateKeyString = new String(encoded, StandardCharsets.UTF_8);
+            privateKey = new String(encoded, StandardCharsets.UTF_8);
+
+        } catch (Exception e) {
+            assertEquals(null, e);
+        }
+
+        String publicKey = "";
+        try {
+            String home = System.getProperty("user.home");
+            String path = home + "/.private/ubimqtt-testing-key.pem";
+
+            byte[] encoded = Files.readAllBytes(Paths.get(path));
+            publicKey = new String(encoded, StandardCharsets.UTF_8);
 
         } catch (Exception e) {
             assertEquals(null, e);
@@ -281,7 +293,7 @@ public class UbiMqttTest {
                 messageFuture.complete(mqttMessage.toString());
             }
         };
-        ubiMqtt.subscribe(new IMqttActionListener() {
+        ubiMqtt.subscribeSigned(new IMqttActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanPublishAndSubscribeSigned() subscribing from MQTT server succeeded");
@@ -293,7 +305,7 @@ public class UbiMqttTest {
                 log("testUbiMqtt_CanPublishAndSubscribeSigned() subscribning from MQTT server failed");
                 subscribeFuture.complete("failure");
             }
-        }, "test/testtopic", messageListener);
+        }, "test/testtopic", publicKey, messageListener);
         try {
             assertEquals("success", subscribeFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
@@ -332,7 +344,7 @@ public class UbiMqttTest {
 
         CompletableFuture<String> publishFuture = new CompletableFuture<>();
 
-        ubiMqtt.publish(new IMqttActionListener() {
+        ubiMqtt.publishSigned(new IMqttActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanPublishAndSubscribeSigned() publishing to MQTT server succeeded");
@@ -344,7 +356,7 @@ public class UbiMqttTest {
                 log("testUbiMqtt_CanPublishAndSubscribeSigned() publishing to MQTT server failed");
                 publishFuture.complete("failure");
             }
-        }, "test/testtopic", "Hello from Java!");
+        }, "test/testtopic", "Hello from Java!", privateKey);
         try {
             assertEquals("success", publishFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {

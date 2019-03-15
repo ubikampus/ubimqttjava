@@ -12,12 +12,16 @@ import com.nimbusds.jose.jwk.JWK;
 
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
+import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.json.simple.parser.ParseException;
 
 
+import java.io.IOException;
 import java.security.Key;
 import java.util.UUID;
 
@@ -74,7 +78,7 @@ public class UbiMqtt {
     public void publishSigned(IMqttActionListener actionListener, String topic, String message, String privateKey) {
         try {
             this.client.publish(topic, this.signMessage(message, privateKey).getBytes(), 1, false, null, actionListener);
-        } catch (MqttException e) {
+        } catch (Exception e) {
             actionListener.onFailure(null, e);
         }
     }
@@ -88,16 +92,32 @@ public class UbiMqtt {
     }
 
     public void subscribeSigned(IMqttActionListener actionListener, String topic, String publicKey, IMqttMessageListener listener) {
-      //ToDo: write a IMqttMessageListener that checks the signatures
+        IMqttMessageListener messageListener = new IMqttMessageListener() {
+            @Override
+            public void messageArrived(String s, MqttMessage mqttMessage) throws Exception {
+                System.out.println("messageListener::messageArrived() topic: " + s + " message: " + mqttMessage.toString());
+
+                if (verifyMessage(mqttMessage.toString(), publicKey)) {
+                    System.out.println("Message verification succeeded, passing to the listener");
+                    listener.messageArrived(s, mqttMessage);
+                }
+                else {
+                    System.out.println("Message verification failed, message not passed to the listener");
+                }
+            }
+        };
+        this.subscribe(actionListener, topic, messageListener);
     }
 
     public void subscribeFromPublisher(String topic, String publisherName, IMqttMessageListener listener) {
        //ToDo: subscribe to the key changes of the publisher
     }
 
-    private String signMessage(String message, String pemEncodedRSAPrivateKey) {
-
-       return message;
+    private String signMessage(String message, String privateKey) throws IOException, JOSEException {
+       return JwsHelper.signMessage(message, privateKey);
     }
 
+    private boolean verifyMessage(String message, String publicKey) throws ParseException, JOSEException, java.text.ParseException, IOException {
+        return JwsHelper.verifySignature(message, publicKey);
+    }
 }
