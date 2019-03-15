@@ -32,7 +32,7 @@ public class JwsHelperTest {
         try {
             String signedResult = JwsHelper.signMessage("Hello world", privateKey);
             System.out.println(signedResult);
-        } catch (JOSEException e) {
+        } catch (Exception e) {
             e.printStackTrace();
             assertEquals(null, e);
         }
