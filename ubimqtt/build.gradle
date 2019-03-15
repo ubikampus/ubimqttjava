@@ -1,0 +1,25 @@
+apply plugin: 'java-library'
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    // https://mvnrepository.com/artifact/org.bitbucket.b_c/jose4j
+    // https://mvnrepository.com/artifact/com.nimbusds/nimbus-jose-jwt
+    //compile group: 'org.bouncycastle', name: 'bcprov-jdk16', version: '1.46'
+    //compile group: 'com.nimbusds', name: 'nimbus-jose-jwt', version: '7.0.1'
+
+    compile 'com.nimbusds:nimbus-jose-jwt:7.0.1'
+    compile 'com.madgag.spongycastle:core:1.58.0.0'
+    compile 'com.madgag.spongycastle:prov:1.58.0.0'
+    compile 'org.bouncycastle:bcprov-jdk15on:1.58'
+
+    // https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk15on
+
+
+    compile 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.1'
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    testCompile "org.slf4j:slf4j-simple:1.7.9"
+
+}
+
+sourceCompatibility = "8"
+targetCompatibility = "8"
