@@ -6,20 +6,21 @@ import java.security.interfaces.ECPublicKey;
 public class Subscription {
     private String topic;
     private IUbiMessageListener listener;
-    private ECPublicKey ecPublicKey;
-    private long lastTimestamp;
-    private String lastNonce;
+    private ECPublicKey[] ecPublicKeys;
 
 
-    public Subscription(String topic, IUbiMessageListener listener, String publicKey) throws IOException {
+
+    public Subscription(String topic, IUbiMessageListener listener, String[] publicKeys) throws IOException {
         this.topic = topic;
         this.listener = listener;
-        if (publicKey != null && publicKey != "") {
-            this.ecPublicKey = JwsHelper.createEcPublicKey(publicKey);
-            this.lastTimestamp = System.currentTimeMillis();
-            this.lastNonce = "";
+        if (publicKeys != null) {
+            this.ecPublicKeys = new ECPublicKey[publicKeys.length];
+
+            for (int i=0; i<publicKeys.length; i++) {
+                this.ecPublicKeys[i] = JwsHelper.createEcPublicKey(publicKeys[i]);
+            }
         } else {
-            this.ecPublicKey = null;
+            this.ecPublicKeys = null;
         }
     }
 
@@ -27,31 +28,16 @@ public class Subscription {
         return listener;
     }
 
-    public ECPublicKey getEcPublicKey() {
-        return ecPublicKey;
+    public ECPublicKey[] getEcPublicKeys() {
+        return ecPublicKeys;
     }
 
-    public void setEcPublicKey(ECPublicKey ecPublicKey) {
-        this.ecPublicKey = ecPublicKey;
+    public void setEcPublicKeys(ECPublicKey[] ecPublicKeys) {
+        this.ecPublicKeys = ecPublicKeys;
     }
 
     public String getTopic() {
         return topic;
     }
 
-    public void setLastTimestamp(long lastTimestamp) {
-        this.lastTimestamp = lastTimestamp;
-    }
-
-    public void setLastNonce(String lastNonce) {
-        this.lastNonce = lastNonce;
-    }
-
-    public long getLastTimestamp() {
-        return lastTimestamp;
-    }
-
-    public String getLastNonce() {
-        return lastNonce;
-    }
 }

@@ -23,6 +23,7 @@ import org.json.simple.parser.ParseException;
 
 import java.io.IOException;
 import java.security.Key;
+import java.security.interfaces.ECPublicKey;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -53,9 +54,14 @@ public class UbiMqtt {
                 Iterator<Map.Entry<String, Subscription>> iter = subscriptions.get(topic).entrySet().iterator();
                 while (iter.hasNext()) {
                     Map.Entry<String, Subscription> entry = iter.next();
-                    if (entry.getValue().getEcPublicKey() != null) {
-                        if (messageValidator.validateMessage(mqttMessage.toString(), entry.getValue().getEcPublicKey())) {
-                            entry.getValue().getListener().messageArrived(topic, mqttMessage, entry.getKey());
+                    if (entry.getValue().getEcPublicKeys() != null) {
+                        // This is a topic where signed messages are expected, try if the signature matches some of the public keys
+                        ECPublicKey[] tempKeys = entry.getValue().getEcPublicKeys();
+                        for (int i=0; i< tempKeys.length; i++) {
+                            if (messageValidator.validateMessage(mqttMessage.toString(), tempKeys[i])) {
+                                entry.getValue().getListener().messageArrived(topic, mqttMessage, entry.getKey());
+                                break;
+                            }
                         }
                     } else {
                         entry.getValue().getListener().messageArrived(topic, mqttMessage, entry.getKey());
@@ -144,11 +150,13 @@ public class UbiMqtt {
 
     protected void updatePublicKey(String topic, String listenerId, String publicKey) throws IOException {
         if (subscriptions.containsKey(topic) && subscriptions.get(topic).containsKey(listenerId)) {
-            subscriptions.get(topic).get(listenerId).setEcPublicKey(JwsHelper.createEcPublicKey(publicKey));
+            ECPublicKey[] tempKeys = new ECPublicKey[1];
+            tempKeys[0] = JwsHelper.createEcPublicKey(publicKey);
+            subscriptions.get(topic).get(listenerId).setEcPublicKeys(tempKeys);
         }
     }
 
-    private void addSubscription(IMqttActionListener actionListener, String topic, String publicKey, IUbiMessageListener listener) {
+    private void addSubscription(IMqttActionListener actionListener, String topic, String[] publicKeys, IUbiMessageListener listener) {
         try {
             if (!subscriptions.containsKey(topic))
                 subscriptions.put(topic, Collections.synchronizedMap(new HashMap<String, Subscription>()));
@@ -156,7 +164,7 @@ public class UbiMqtt {
             String listenerId = listenerCounter + "";
             listenerCounter++;
 
-            subscriptions.get(topic).put(listenerId, new Subscription(topic, listener, publicKey));
+            subscriptions.get(topic).put(listenerId, new Subscription(topic, listener, publicKeys));
 
             this.client.subscribe(topic, 1, null, actionListener, messageListener);
         } catch (Exception e) {
@@ -169,8 +177,8 @@ public class UbiMqtt {
         addSubscription(actionListener, topic, null, listener);
     }
 
-    public void subscribeSigned(IMqttActionListener actionListener, String topic, String publicKey, IUbiMessageListener listener) {
-        addSubscription(actionListener, topic, publicKey, listener);
+    public void subscribeSigned(IMqttActionListener actionListener, String topic, String[] publicKeys, IUbiMessageListener listener) {
+        addSubscription(actionListener, topic, publicKeys, listener);
     }
 
     public void subscribeFromPublisher(IMqttActionListener actionListener, String topic, String publisherName, IUbiMessageListener listener) {

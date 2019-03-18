@@ -26,8 +26,8 @@ public class PublicKeyChangeListener implements IUbiMessageListener {
         }
         else {
             // This is the first time the public key arrives, subscribe to the main topic
-            ubiMqtt.subscribeSigned(originalCallback, mainTopic, message.toString(), mainListener);
+            String[] publicKeys = {message.toString()};
+            ubiMqtt.subscribeSigned(originalCallback, mainTopic, publicKeys, mainListener);
         }
     }
-
 }

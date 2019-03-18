@@ -294,6 +294,8 @@ public class UbiMqttTest {
                 messageFuture.complete(mqttMessage.toString());
             }
         };
+        String[] publicKeys = {publicKey};
+
         ubiMqtt.subscribeSigned(new IMqttActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
@@ -306,7 +308,7 @@ public class UbiMqttTest {
                 log("testUbiMqtt_CanPublishAndSubscribeSigned() subscribning from MQTT server failed");
                 subscribeFuture.complete("failure");
             }
-        }, SIGNED_TOPIC, publicKey, messageListener);
+        }, SIGNED_TOPIC, publicKeys, messageListener);
         try {
             assertEquals("success", subscribeFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
