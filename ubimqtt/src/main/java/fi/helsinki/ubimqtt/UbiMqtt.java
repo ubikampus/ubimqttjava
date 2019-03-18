@@ -23,23 +23,74 @@ import org.json.simple.parser.ParseException;
 
 import java.io.IOException;
 import java.security.Key;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.UUID;
+import java.util.Vector;
 
 public class UbiMqtt {
+    public static final int DEFAULT_MAXIMUM_REPLAY_BUFFER_SIZE = 1000;
+
+    public static final String PUBLISHERS_PREFIX = "publishers/";
 
     private String clientId = null;
     private String serverAddress = null;
 
     private MqttAsyncClient client = null;
+    private MessageValidator messageValidator;
 
+    int listenerCounter = 0;
+
+    private Map<String, Map<String, Subscription>> subscriptions;
+    private Vector<PublicKeyChangeListener> publicKeyChangeListeners;
+
+    private IMqttMessageListener messageListener = new IMqttMessageListener() {
+        @Override
+        public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
+            if (subscriptions.containsKey(topic)) {
+                Iterator<Map.Entry<String, Subscription>> iter = subscriptions.get(topic).entrySet().iterator();
+                while (iter.hasNext()) {
+                    Map.Entry<String, Subscription> entry = iter.next();
+                    if (entry.getValue().getEcPublicKey() != null) {
+                        if (messageValidator.validateMessage(mqttMessage.toString(), entry.getValue().getEcPublicKey())) {
+                            entry.getValue().getListener().messageArrived(topic, mqttMessage, entry.getKey());
+                        }
+                    } else {
+                        entry.getValue().getListener().messageArrived(topic, mqttMessage, entry.getKey());
+                    }
+                }
+            }
+        }
+    };
 
     public UbiMqtt(String serverAddress) {
         this.clientId = UUID.randomUUID().toString();
+        this.messageValidator = new MessageValidator(DEFAULT_MAXIMUM_REPLAY_BUFFER_SIZE);
+
+        this.subscriptions = Collections.synchronizedMap(new HashMap<String, Map<String, Subscription>>());
+        this.publicKeyChangeListeners = new Vector<PublicKeyChangeListener>();
 
         if (serverAddress.startsWith("tcp://"))
             this.serverAddress = serverAddress;
         else
-            this.serverAddress = "tcp://"+serverAddress;
+            this.serverAddress = "tcp://" + serverAddress;
+
+    }
+
+    public UbiMqtt(String serverAddress, int maximumReplayBufferSize) {
+        this.clientId = UUID.randomUUID().toString();
+        this.messageValidator = new MessageValidator(maximumReplayBufferSize);
+
+        this.subscriptions = Collections.synchronizedMap(new HashMap<String, Map<String, Subscription>>());
+        this.publicKeyChangeListeners = new Vector<PublicKeyChangeListener>();
+
+        if (serverAddress.startsWith("tcp://"))
+            this.serverAddress = serverAddress;
+        else
+            this.serverAddress = "tcp://" + serverAddress;
+
     }
 
     public void connect(IMqttActionListener listener) {
@@ -51,8 +102,7 @@ public class UbiMqtt {
             mqttClientOptions.setAutomaticReconnect(true);
 
             this.client.connect(mqttClientOptions, listener);
-        }
-        catch (MqttException e) {
+        } catch (MqttException e) {
             listener.onFailure(null, e);
         }
     }
@@ -67,54 +117,84 @@ public class UbiMqtt {
 
     }
 
-    public void publish(IMqttActionListener actionListener, String topic, String message) {
+    public void publish(IMqttActionListener actionListener, String topic, String message, int qos, boolean retained) {
         try {
-            this.client.publish(topic, message.getBytes(), 1, false, null, actionListener);
+            this.client.publish(topic, message.getBytes(), qos, retained, null, actionListener);
         } catch (MqttException e) {
-           actionListener.onFailure(null, e);
+            actionListener.onFailure(null, e);
         }
     }
 
-    public void publishSigned(IMqttActionListener actionListener, String topic, String message, String privateKey) {
+    public void publish(IMqttActionListener actionListener, String topic, String message) {
+        publish(actionListener, topic, message, 1,false);
+    }
+
+
+    public void publishSigned(IMqttActionListener actionListener, String topic, String message, String privateKey, int qos, boolean retained) {
         try {
-            this.client.publish(topic, this.signMessage(message, privateKey).getBytes(), 1, false, null, actionListener);
+            this.client.publish(topic, this.signMessage(message, privateKey).getBytes(), qos, retained, null, actionListener);
         } catch (Exception e) {
             actionListener.onFailure(null, e);
         }
     }
 
-    public void subscribe(IMqttActionListener actionListener, String topic, IMqttMessageListener listener) {
+    public void publishSigned(IMqttActionListener actionListener, String topic, String message, String privateKey) {
+        publishSigned(actionListener, topic, message, privateKey, 1, false);
+    }
+
+    protected void updatePublicKey(String topic, String listenerId, String publicKey) throws IOException {
+        if (subscriptions.containsKey(topic) && subscriptions.get(topic).containsKey(listenerId)) {
+            subscriptions.get(topic).get(listenerId).setEcPublicKey(JwsHelper.createEcPublicKey(publicKey));
+        }
+    }
+
+    private void addSubscription(IMqttActionListener actionListener, String topic, String publicKey, IUbiMessageListener listener) {
         try {
-            this.client.subscribe(topic, 1, null, actionListener, listener);
-        } catch (MqttException e) {
+            if (!subscriptions.containsKey(topic))
+                subscriptions.put(topic, Collections.synchronizedMap(new HashMap<String, Subscription>()));
+
+            String listenerId = listenerCounter + "";
+            listenerCounter++;
+
+            subscriptions.get(topic).put(listenerId, new Subscription(topic, listener, publicKey));
+
+            this.client.subscribe(topic, 1, null, actionListener, messageListener);
+        } catch (Exception e) {
+            e.printStackTrace();
             actionListener.onFailure(null, e);
         }
     }
 
-    public void subscribeSigned(IMqttActionListener actionListener, String topic, String publicKey, IMqttMessageListener listener) {
-        IMqttMessageListener messageListener = new IMqttMessageListener() {
-            @Override
-            public void messageArrived(String s, MqttMessage mqttMessage) throws Exception {
-                System.out.println("messageListener::messageArrived() topic: " + s + " message: " + mqttMessage.toString());
-
-                if (verifyMessage(mqttMessage.toString(), publicKey)) {
-                    System.out.println("Message verification succeeded, passing to the listener");
-                    listener.messageArrived(s, mqttMessage);
-                }
-                else {
-                    System.out.println("Message verification failed, message not passed to the listener");
-                }
-            }
-        };
-        this.subscribe(actionListener, topic, messageListener);
+    public void subscribe(IMqttActionListener actionListener, String topic, IUbiMessageListener listener) {
+        addSubscription(actionListener, topic, null, listener);
     }
 
-    public void subscribeFromPublisher(String topic, String publisherName, IMqttMessageListener listener) {
-       //ToDo: subscribe to the key changes of the publisher
+    public void subscribeSigned(IMqttActionListener actionListener, String topic, String publicKey, IUbiMessageListener listener) {
+        addSubscription(actionListener, topic, publicKey, listener);
+    }
+
+    public void subscribeFromPublisher(IMqttActionListener actionListener, String topic, String publisherName, IUbiMessageListener listener) {
+        PublicKeyChangeListener publicKeyChangeListener = new PublicKeyChangeListener(this, topic, listener, actionListener);
+        publicKeyChangeListeners.add(publicKeyChangeListener);
+
+        //subscribe to the public key of the publisher
+        String publicKeyTopic = PUBLISHERS_PREFIX + publisherName + "/publicKey";
+
+        this.subscribe(new IMqttActionListener() {
+            @Override
+            public void onSuccess(IMqttToken iMqttToken) {
+            }
+
+            @Override
+            public void onFailure(IMqttToken iMqttToken, Throwable throwable) {
+                actionListener.onFailure(iMqttToken, throwable);
+            }
+        }, publicKeyTopic, publicKeyChangeListener);
+
     }
 
     private String signMessage(String message, String privateKey) throws IOException, JOSEException {
-       return JwsHelper.signMessage(message, privateKey);
+        return JwsHelper.signMessage(message, privateKey);
     }
 
     private boolean verifyMessage(String message, String publicKey) throws ParseException, JOSEException, java.text.ParseException, IOException {

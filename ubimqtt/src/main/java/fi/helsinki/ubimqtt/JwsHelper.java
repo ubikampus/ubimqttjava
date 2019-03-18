@@ -4,18 +4,15 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSObject;
-import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.JWSVerifier;
 import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.crypto.ECDSASigner;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
-import com.nimbusds.jose.jwk.ECKey;
-import com.nimbusds.jose.jwk.JWK;
-import com.nimbusds.jose.util.Base64;
 import com.nimbusds.jose.util.Base64URL;
 
 import java.security.interfaces.ECPrivateKey;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.openssl.PEMException;
 import org.bouncycastle.openssl.PEMKeyPair;
@@ -33,16 +30,15 @@ import java.security.interfaces.ECPublicKey;
 
 public class JwsHelper {
 
+    public static boolean verifySignature(String json, ECPublicKey publicKey) throws java.text.ParseException, IOException, JOSEException, ParseException {
+        return verifySignatureCompact(jsonToCompact(json), publicKey);
+    }
 
     public static boolean verifySignature(String json, String publicKey) throws java.text.ParseException, IOException, JOSEException, ParseException {
-        // Parse the EC key pair
-
     return verifySignatureCompact(jsonToCompact(json), publicKey);
     }
 
-    public static boolean verifySignatureCompact(String compact, String publicKey) throws java.text.ParseException, IOException, JOSEException {
-        // Parse the EC key pair
-        //PEMParser pemParser = new PEMParser(new InputStreamReader(new FileInputStream("ec512-key-pair.pem")));
+    public static ECPublicKey createEcPublicKey(String publicKey) throws IOException {
         PEMParser pemParser = new PEMParser(new StringReader(publicKey));
         SubjectPublicKeyInfo pemPublicKey = (SubjectPublicKeyInfo)pemParser.readObject();
 
@@ -52,10 +48,14 @@ public class JwsHelper {
 
         pemParser.close();
 
-        // Get private + public EC key
-        //ECPrivateKey ecPrivateKey = (ECPrivateKey)keyPair.getPrivate();
+        return ecPublicKey;
+    }
 
+    public static boolean verifySignatureCompact(String compact, String publicKey) throws java.text.ParseException, IOException, JOSEException {
+        return verifySignatureCompact(compact, createEcPublicKey(publicKey));
+    }
 
+    public static boolean verifySignatureCompact(String compact, ECPublicKey ecPublicKey) throws java.text.ParseException, IOException, JOSEException {
 
         String[] parts = compact.split("\\.");
 
@@ -91,8 +91,12 @@ public class JwsHelper {
 
         //ECPublicKey publicKey = (ECPublicKey)keyPair.getPublic();
 
-        // Sign test
-        JWSObject jwsObject = new JWSObject(new JWSHeader(JWSAlgorithm.ES512), new Payload(message));
+        JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.ES512).
+                customParam("timestamp", System.currentTimeMillis()).
+                customParam("nonce", RandomStringUtils.randomAlphanumeric(12)).
+                build();
+
+        JWSObject jwsObject = new JWSObject(header, new Payload(message));
         jwsObject.sign(new ECDSASigner(ecPrivateKey));
 
 
@@ -137,6 +141,7 @@ public class JwsHelper {
 
         return obj.toJSONString();
     }
+
 
   public static String jsonToCompact(String json) throws ParseException {
       JSONParser parser = new JSONParser();

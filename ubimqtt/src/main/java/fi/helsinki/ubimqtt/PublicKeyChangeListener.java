@@ -1,0 +1,33 @@
+package fi.helsinki.ubimqtt;
+
+import org.eclipse.paho.client.mqttv3.IMqttActionListener;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+
+public class PublicKeyChangeListener implements IUbiMessageListener {
+    private String mainListenerId = null;
+    private IMqttActionListener originalCallback = null;
+    private UbiMqtt ubiMqtt = null;
+    private String mainTopic = null;
+    IUbiMessageListener mainListener = null;
+
+    public PublicKeyChangeListener(UbiMqtt ubiMqtt, String mainTopic, IUbiMessageListener mainListener, IMqttActionListener originalCallback)  {
+        this.ubiMqtt = ubiMqtt;
+        this.mainTopic = mainTopic;
+        this.mainListener = mainListener;
+        this.originalCallback = originalCallback;
+
+        this.mainListenerId = null;
+    }
+
+    public void messageArrived(String topic, MqttMessage message, String listenerId) throws Exception {
+        if (mainListenerId != null) {
+            System.out.println("PublicKeyChangeListener::onPublicKeyChanged() changing public key");
+            ubiMqtt.updatePublicKey(mainTopic, mainListenerId, message.toString());
+        }
+        else {
+            // This is the first time the public key arrives, subscribe to the main topic
+            ubiMqtt.subscribeSigned(originalCallback, mainTopic, message.toString(), mainListener);
+        }
+    }
+
+}
