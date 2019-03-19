@@ -32,7 +32,7 @@ import java.util.UUID;
 import java.util.Vector;
 
 public class UbiMqtt {
-    public static final int DEFAULT_MAXIMUM_REPLAY_BUFFER_SIZE = 1000;
+    public static final int DEFAULT_BUFFER_WINDOW_IN_SECONDS = 60;
 
     public static final String PUBLISHERS_PREFIX = "publishers/";
 
@@ -73,7 +73,7 @@ public class UbiMqtt {
 
     public UbiMqtt(String serverAddress) {
         this.clientId = UUID.randomUUID().toString();
-        this.messageValidator = new MessageValidator(DEFAULT_MAXIMUM_REPLAY_BUFFER_SIZE);
+        this.messageValidator = new MessageValidator(DEFAULT_BUFFER_WINDOW_IN_SECONDS);
 
         this.subscriptions = Collections.synchronizedMap(new HashMap<String, Map<String, Subscription>>());
         this.publicKeyChangeListeners = new Vector<PublicKeyChangeListener>();
@@ -85,9 +85,9 @@ public class UbiMqtt {
 
     }
 
-    public UbiMqtt(String serverAddress, int maximumReplayBufferSize) {
+    public UbiMqtt(String serverAddress, int bufferWindowInSeconds) {
         this.clientId = UUID.randomUUID().toString();
-        this.messageValidator = new MessageValidator(maximumReplayBufferSize);
+        this.messageValidator = new MessageValidator(bufferWindowInSeconds);
 
         this.subscriptions = Collections.synchronizedMap(new HashMap<String, Map<String, Subscription>>());
         this.publicKeyChangeListeners = new Vector<PublicKeyChangeListener>();
@@ -201,7 +201,7 @@ public class UbiMqtt {
 
     }
 
-    private String signMessage(String message, String privateKey) throws IOException, JOSEException {
+    private String signMessage(String message, String privateKey) throws IOException, JOSEException, ParseException {
         return JwsHelper.signMessage(message, privateKey);
     }
 

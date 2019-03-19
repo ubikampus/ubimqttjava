@@ -1,6 +1,7 @@
 package fi.helsinki.ubimqtt;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -8,13 +9,13 @@ import java.util.TreeMap;
 public class ReplayDetector {
 
     private SortedMap<Long, Map<String, Boolean>> buffer;
-    private int maxBufferSize = -1;
+    private int bufferWindowInSeconds = -1;
 
-    public ReplayDetector(int maxBufferSize) {
+    public ReplayDetector(int bufferWindowInSeconds) {
 
         this.buffer = new TreeMap<Long, Map<String, Boolean>>();
-        this.maxBufferSize = maxBufferSize;
-        addEntry(System.currentTimeMillis(), "");
+        this.bufferWindowInSeconds = bufferWindowInSeconds;
+        //addEntry(System.currentTimeMillis(), "");
     }
 
     private void addEntry(long timestamp, String nonce) {
@@ -32,19 +33,26 @@ public class ReplayDetector {
     }
 
     public boolean isValid(long timestamp, String nonce) {
+        // Reject messages that are older than the bufferWindowInSeconds
 
-        // Reject messages that are older than the oldest entry in the buffer
-        if (buffer.size() != 0 && timestamp < buffer.firstKey())
+        if (timestamp< System.currentTimeMillis() - (bufferWindowInSeconds*1000))
             return false;
 
         // Reject message If there is an entry with exactly same timestamp and nonce
         if (buffer.containsKey(timestamp) && buffer.get(timestamp).containsKey(nonce))
             return false;
 
-        // If buffer is growing too large, remove an entry
-        if (buffer.size() == maxBufferSize)
-            buffer.remove(buffer.firstKey());
+        // Remove entries that are older than bufferWindowInSeconds from buffer
 
+        Iterator<Long> iterator = buffer.keySet().iterator();
+
+        while (iterator.hasNext()) {
+            long key = iterator.next();
+            if (key < System.currentTimeMillis() - (bufferWindowInSeconds*1000))
+                iterator.remove();
+            else
+                break;
+        }
         // Message is accptable, add it to the buffer
 
         addEntry(timestamp, nonce);

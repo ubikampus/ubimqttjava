@@ -13,12 +13,10 @@ import java.security.interfaces.ECPublicKey;
 
 public class MessageValidator {
 
-    private int maximumReplayBufferSize;
     private ReplayDetector replayDetector;
 
-    public MessageValidator(int maximumReplayBufferSize) {
-        this.maximumReplayBufferSize = maximumReplayBufferSize;
-        this.replayDetector = new ReplayDetector(maximumReplayBufferSize);
+    public MessageValidator(int bufferWindowInSeconds) {
+        this.replayDetector = new ReplayDetector(bufferWindowInSeconds);
     }
 
     public boolean validateMessage(String message, ECPublicKey ecPublicKey) throws ParseException, JOSEException, java.text.ParseException, IOException {
@@ -40,7 +38,7 @@ public class MessageValidator {
         if (!isSignatureCorrect)
             return false;
 
-        long timestamp = Long.parseLong((String)headerObj.get("timestamp"));
+        long timestamp = (Long)headerObj.get("timestamp");
         String nonce = (String)headerObj.get("nonce");
 
         return replayDetector.isValid(timestamp, nonce);

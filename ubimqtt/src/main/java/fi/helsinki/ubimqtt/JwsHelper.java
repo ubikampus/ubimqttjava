@@ -69,11 +69,11 @@ public class JwsHelper {
         return jwsObject.verify(verifier);
     }
 
-    public static String signMessage( String message, String privateKey) throws JOSEException, PEMException, IOException {
+    public static String signMessage( String message, String privateKey) throws JOSEException, ParseException, IOException {
         return compactToJson(signMessageToCompact(message, privateKey));
     }
 
-    public static String signMessageToCompact( String message, String privateKey) throws JOSEException, PEMException, IOException {
+    public static String signMessageToCompact( String message, String privateKey) throws JOSEException, IOException {
         //ECKey jwk = (ECKey) ECKey.parseFromPEMEncodedObjects(pemEncodedRSAPrivateKey);
 
         // Parse the EC key pair
@@ -115,7 +115,7 @@ public class JwsHelper {
         return s;
     }
 
-    public static String compactToJson(String compact) {
+    public static String compactToJson(String compact) throws ParseException{
         String[] parts = compact.split("\\.");
 
         String header = new Base64URL(parts[0]).decodeToString();
@@ -130,7 +130,10 @@ public class JwsHelper {
 
         JSONObject signatureObject = new JSONObject();
 
-        signatureObject.put("protected", header);
+        JSONParser parser = new JSONParser();
+        JSONObject headerObj = (JSONObject) parser.parse(header);
+
+        signatureObject.put("protected", headerObj);
         signatureObject.put("signature", signature);
 
         JSONArray signaturesArray = new JSONArray();
@@ -152,7 +155,7 @@ public class JwsHelper {
       JSONArray signaturesArray = (JSONArray)obj.get("signatures");
       JSONObject signatureObject = (JSONObject)signaturesArray.get(0);
 
-      String header = (String)signatureObject.get("protected");
+      String header = ((JSONObject)signatureObject.get("protected")).toJSONString();
       String signature = (String)signatureObject.get("signature");
 
 
