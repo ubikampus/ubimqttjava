@@ -1,6 +1,5 @@
 package fi.helsinki.ubimqtt;
 
-import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.Test;
@@ -49,7 +48,7 @@ public class UbiMqttTest {
 
         UbiMqtt ubiMqtt = new UbiMqtt("localhost:1883");
 
-        ubiMqtt.connect(new IMqttActionListener() {
+        ubiMqtt.connect(new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanConnect() Connecting to mqtt server succeeded");
@@ -66,7 +65,7 @@ public class UbiMqttTest {
             assertEquals("success", future.get(5, TimeUnit.SECONDS));
 
             CompletableFuture<String> disconnectFuture = new CompletableFuture<>();
-            ubiMqtt.disconnect(new IMqttActionListener() {
+            ubiMqtt.disconnect(new IUbiActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
                     log("testUbiMqtt_CanConnect() Disconnecting from mqtt server succeeded");
@@ -99,7 +98,7 @@ public class UbiMqttTest {
 
         UbiMqtt ubiMqtt = new UbiMqtt("awoeifjoij:1833");
 
-        ubiMqtt.connect(new IMqttActionListener() {
+        ubiMqtt.connect(new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanHandleConnectFailure() Connecting to non-existing address succeeded, this is an error");
@@ -129,7 +128,7 @@ public class UbiMqttTest {
 
         UbiMqtt ubiMqtt = new UbiMqtt("localhost:1883");
 
-        ubiMqtt.connect(new IMqttActionListener() {
+        ubiMqtt.connect(new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanPublishAndSubscribe() Connecting to mqtt server succeeded");
@@ -159,7 +158,7 @@ public class UbiMqttTest {
                 messageFuture.complete(mqttMessage.toString());
             }
         };
-        ubiMqtt.subscribe(new IMqttActionListener() {
+        ubiMqtt.subscribe("test/javatesttopic", messageListener, new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanPublishAndSubscribe() subscribing from MQTT server succeeded");
@@ -171,7 +170,7 @@ public class UbiMqttTest {
                 log("testUbiMqtt_CanPublishAndSubscribe() subscribning from MQTT server failed");
                 subscribeFuture.complete("failure");
             }
-        }, "test/javatesttopic", messageListener);
+        });
         try {
             assertEquals("success", subscribeFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
@@ -183,7 +182,7 @@ public class UbiMqttTest {
             messageFuture.acceptEither(timeoutAfter(10, TimeUnit.SECONDS), message -> assertEquals("Hello from Java!", message))
                     .thenAccept(message -> {
                         CompletableFuture<String> disconnectFuture = new CompletableFuture<>();
-                        ubiMqtt.disconnect(new IMqttActionListener() {
+                        ubiMqtt.disconnect(new IUbiActionListener() {
                             @Override
                             public void onSuccess(IMqttToken asyncActionToken) {
                                 log("testUbiMqtt_CanPublishAndSubscribe() Disconnecting from mqtt server succeeded");
@@ -210,7 +209,7 @@ public class UbiMqttTest {
 
         CompletableFuture<String> publishFuture = new CompletableFuture<>();
 
-        ubiMqtt.publish(new IMqttActionListener() {
+        ubiMqtt.publish(TOPIC, "Hello from Java!", new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanPublishAndSubscribe() publishing to MQTT server succeeded");
@@ -222,7 +221,7 @@ public class UbiMqttTest {
                 log("testUbiMqtt_CanPublishAndSubscribe() publishing to MQTT server failed");
                 publishFuture.complete("failure");
             }
-        }, TOPIC, "Hello from Java!");
+        });
         try {
             assertEquals("success", publishFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
@@ -264,7 +263,7 @@ public class UbiMqttTest {
 
         UbiMqtt ubiMqtt = new UbiMqtt("localhost:1883");
 
-        ubiMqtt.connect(new IMqttActionListener() {
+        ubiMqtt.connect(new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanPublishAndSubscribeSigned() Connecting to mqtt server succeeded");
@@ -296,7 +295,7 @@ public class UbiMqttTest {
         };
         String[] publicKeys = {publicKey};
 
-        ubiMqtt.subscribeSigned(new IMqttActionListener() {
+        ubiMqtt.subscribeSigned(SIGNED_TOPIC, publicKeys, messageListener, new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanPublishAndSubscribeSigned() subscribing from MQTT server succeeded");
@@ -308,7 +307,7 @@ public class UbiMqttTest {
                 log("testUbiMqtt_CanPublishAndSubscribeSigned() subscribning from MQTT server failed");
                 subscribeFuture.complete("failure");
             }
-        }, SIGNED_TOPIC, publicKeys, messageListener);
+        });
         try {
             assertEquals("success", subscribeFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
@@ -320,7 +319,7 @@ public class UbiMqttTest {
             messageFuture.acceptEither(timeoutAfter(10, TimeUnit.SECONDS), message -> assertEquals("Hello from Java!", message))
                     .thenAccept(message -> {
                         CompletableFuture<String> disconnectFuture = new CompletableFuture<>();
-                        ubiMqtt.disconnect(new IMqttActionListener() {
+                        ubiMqtt.disconnect(new IUbiActionListener() {
                             @Override
                             public void onSuccess(IMqttToken asyncActionToken) {
                                 log("testUbiMqtt_CanPublishAndSubscribeSigned() Disconnecting from mqtt server succeeded");
@@ -347,7 +346,7 @@ public class UbiMqttTest {
 
         CompletableFuture<String> publishFuture = new CompletableFuture<>();
 
-        ubiMqtt.publishSigned(new IMqttActionListener() {
+        ubiMqtt.publishSigned(SIGNED_TOPIC, "Hello from Java!", privateKey, new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanPublishAndSubscribeSigned() publishing to MQTT server succeeded");
@@ -359,7 +358,7 @@ public class UbiMqttTest {
                 log("testUbiMqtt_CanPublishAndSubscribeSigned() publishing to MQTT server failed");
                 publishFuture.complete("failure");
             }
-        }, SIGNED_TOPIC, "Hello from Java!", privateKey);
+        });
         try {
             assertEquals("success", publishFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
@@ -402,7 +401,7 @@ public class UbiMqttTest {
 
         UbiMqtt ubiMqtt = new UbiMqtt("localhost:1883");
 
-        ubiMqtt.connect(new IMqttActionListener() {
+        ubiMqtt.connect(new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanSubscribeFromKnownPublisher() Connecting to mqtt server succeeded");
@@ -426,7 +425,7 @@ public class UbiMqttTest {
 
         CompletableFuture<String> publishKeyFuture = new CompletableFuture<>();
 
-        ubiMqtt.publish(new IMqttActionListener() {
+        ubiMqtt.publish(KEY_TOPIC, publicKey, 1, true, new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanSubscribeFromKnownPublisher() publishing key to MQTT server succeeded");
@@ -438,7 +437,7 @@ public class UbiMqttTest {
                 log("testUbiMqtt_CanSubscribeFromKnownPublisher() publishing key to MQTT server failed");
                 publishKeyFuture.complete("failure");
             }
-        }, KEY_TOPIC, publicKey, 1, true);
+        });
         try {
             assertEquals("success", publishKeyFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
@@ -456,7 +455,7 @@ public class UbiMqttTest {
                 messageFuture.complete(mqttMessage.toString());
             }
         };
-        ubiMqtt.subscribeFromPublisher(new IMqttActionListener() {
+        ubiMqtt.subscribeFromPublisher("test/javatesttopic", JAVA_TEST_PUBLISHER, messageListener, new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanSubscribeFromKnownPublisher() subscribing from MQTT server succeeded");
@@ -468,7 +467,7 @@ public class UbiMqttTest {
                 log("testUbiMqtt_CanSubscribeFromKnownPublisher() subscribning from MQTT server failed");
                 subscribeFuture.complete("failure");
             }
-        }, "test/javatesttopic", JAVA_TEST_PUBLISHER, messageListener);
+        });
         try {
             assertEquals("success", subscribeFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
@@ -480,7 +479,7 @@ public class UbiMqttTest {
             messageFuture.acceptEither(timeoutAfter(10, TimeUnit.SECONDS), message -> assertEquals("Hello from Java!", message))
                     .thenAccept(message -> {
                         CompletableFuture<String> disconnectFuture = new CompletableFuture<>();
-                        ubiMqtt.disconnect(new IMqttActionListener() {
+                        ubiMqtt.disconnect(new IUbiActionListener() {
                             @Override
                             public void onSuccess(IMqttToken asyncActionToken) {
                                 log("testUbiMqtt_CanSubscribeFromKnownPublisher() Disconnecting from mqtt server succeeded");
@@ -507,7 +506,7 @@ public class UbiMqttTest {
 
         CompletableFuture<String> publishFuture = new CompletableFuture<>();
 
-        ubiMqtt.publishSigned(new IMqttActionListener() {
+        ubiMqtt.publishSigned(TOPIC, "Hello from Java!", privateKey, new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanSubscribeFromKnownPublisher() publishing to MQTT server succeeded");
@@ -519,7 +518,7 @@ public class UbiMqttTest {
                 log("testUbiMqtt_CanSubscribeFromKnownPublisher() publishing to MQTT server failed");
                 publishFuture.complete("failure");
             }
-        }, TOPIC, "Hello from Java!", privateKey);
+        });
         try {
             assertEquals("success", publishFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {

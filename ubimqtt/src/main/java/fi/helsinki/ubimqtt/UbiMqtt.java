@@ -1,16 +1,7 @@
 package fi.helsinki.ubimqtt;
 
 import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.JWSHeader;
-import com.nimbusds.jose.JWSObject;
-import com.nimbusds.jose.JWSSigner;
-import com.nimbusds.jose.Payload;
-import com.nimbusds.jose.crypto.ECDSASigner;
-import com.nimbusds.jose.jwk.ECKey;
-import com.nimbusds.jose.jwk.JWK;
 
-import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
@@ -71,83 +62,6 @@ public class UbiMqtt {
         }
     };
 
-    public UbiMqtt(String serverAddress) {
-        this.clientId = UUID.randomUUID().toString();
-        this.messageValidator = new MessageValidator(DEFAULT_BUFFER_WINDOW_IN_SECONDS);
-
-        this.subscriptions = Collections.synchronizedMap(new HashMap<String, Map<String, Subscription>>());
-        this.publicKeyChangeListeners = new Vector<PublicKeyChangeListener>();
-
-        if (serverAddress.startsWith("tcp://"))
-            this.serverAddress = serverAddress;
-        else
-            this.serverAddress = "tcp://" + serverAddress;
-
-    }
-
-    public UbiMqtt(String serverAddress, int bufferWindowInSeconds) {
-        this.clientId = UUID.randomUUID().toString();
-        this.messageValidator = new MessageValidator(bufferWindowInSeconds);
-
-        this.subscriptions = Collections.synchronizedMap(new HashMap<String, Map<String, Subscription>>());
-        this.publicKeyChangeListeners = new Vector<PublicKeyChangeListener>();
-
-        if (serverAddress.startsWith("tcp://"))
-            this.serverAddress = serverAddress;
-        else
-            this.serverAddress = "tcp://" + serverAddress;
-
-    }
-
-    public void connect(IMqttActionListener listener) {
-        try {
-            this.client = new MqttAsyncClient(serverAddress, clientId, new MemoryPersistence());
-
-            MqttConnectOptions mqttClientOptions = new MqttConnectOptions();
-            mqttClientOptions.setCleanSession(false);
-            mqttClientOptions.setAutomaticReconnect(true);
-
-            this.client.connect(mqttClientOptions, listener);
-        } catch (MqttException e) {
-            listener.onFailure(null, e);
-        }
-    }
-
-    public void disconnect(IMqttActionListener actionListener) {
-        try {
-            this.client.disconnect();
-            actionListener.onSuccess(null);
-        } catch (MqttException e) {
-            actionListener.onFailure(null, e);
-        }
-
-    }
-
-    public void publish(IMqttActionListener actionListener, String topic, String message, int qos, boolean retained) {
-        try {
-            this.client.publish(topic, message.getBytes(), qos, retained, null, actionListener);
-        } catch (MqttException e) {
-            actionListener.onFailure(null, e);
-        }
-    }
-
-    public void publish(IMqttActionListener actionListener, String topic, String message) {
-        publish(actionListener, topic, message, 1,false);
-    }
-
-
-    public void publishSigned(IMqttActionListener actionListener, String topic, String message, String privateKey, int qos, boolean retained) {
-        try {
-            this.client.publish(topic, this.signMessage(message, privateKey).getBytes(), qos, retained, null, actionListener);
-        } catch (Exception e) {
-            actionListener.onFailure(null, e);
-        }
-    }
-
-    public void publishSigned(IMqttActionListener actionListener, String topic, String message, String privateKey) {
-        publishSigned(actionListener, topic, message, privateKey, 1, false);
-    }
-
     protected void updatePublicKey(String topic, String listenerId, String publicKey) throws IOException {
         if (subscriptions.containsKey(topic) && subscriptions.get(topic).containsKey(listenerId)) {
             ECPublicKey[] tempKeys = new ECPublicKey[1];
@@ -156,7 +70,7 @@ public class UbiMqtt {
         }
     }
 
-    private void addSubscription(IMqttActionListener actionListener, String topic, String[] publicKeys, IUbiMessageListener listener) {
+    private void addSubscription(IUbiActionListener actionListener, String topic, String[] publicKeys, IUbiMessageListener listener) {
         try {
             if (!subscriptions.containsKey(topic))
                 subscriptions.put(topic, Collections.synchronizedMap(new HashMap<String, Subscription>()));
@@ -173,22 +87,184 @@ public class UbiMqtt {
         }
     }
 
-    public void subscribe(IMqttActionListener actionListener, String topic, IUbiMessageListener listener) {
+    private String signMessage(String message, String privateKey) throws IOException, JOSEException, ParseException {
+        return JwsHelper.signMessage(message, privateKey);
+    }
+
+
+    /**
+     * Constructs a Ubimqtt instance with default bufferWindowInSeconds but does not connect to a server
+     * @param serverAddress the Mqtt server to use
+     */
+
+    public UbiMqtt(String serverAddress) {
+        this.clientId = UUID.randomUUID().toString();
+        this.messageValidator = new MessageValidator(DEFAULT_BUFFER_WINDOW_IN_SECONDS);
+
+        this.subscriptions = Collections.synchronizedMap(new HashMap<String, Map<String, Subscription>>());
+        this.publicKeyChangeListeners = new Vector<PublicKeyChangeListener>();
+
+        if (serverAddress.startsWith("tcp://"))
+            this.serverAddress = serverAddress;
+        else
+            this.serverAddress = "tcp://" + serverAddress;
+
+    }
+
+    /**
+     * Constructs a Ubimqtt instance but does not connect to a server
+     * @param serverAddress the Mqtt server to use
+     * @param bufferWindowInSeconds the maximum acceptable age for signed messages, older signed messages will be discarded
+     */
+
+    public UbiMqtt(String serverAddress, int bufferWindowInSeconds) {
+        this.clientId = UUID.randomUUID().toString();
+        this.messageValidator = new MessageValidator(bufferWindowInSeconds);
+
+        this.subscriptions = Collections.synchronizedMap(new HashMap<String, Map<String, Subscription>>());
+        this.publicKeyChangeListeners = new Vector<PublicKeyChangeListener>();
+
+        if (serverAddress.startsWith("tcp://"))
+            this.serverAddress = serverAddress;
+        else
+            this.serverAddress = "tcp://" + serverAddress;
+
+    }
+
+    /**
+     * Connecs to the Mqtt server the address of which was given as a constructor parameter
+     * @param actionListener the listener to call upon connection or error
+     */
+
+    public void connect(IUbiActionListener actionListener) {
+        try {
+            this.client = new MqttAsyncClient(serverAddress, clientId, new MemoryPersistence());
+
+            MqttConnectOptions mqttClientOptions = new MqttConnectOptions();
+            mqttClientOptions.setCleanSession(false);
+            mqttClientOptions.setAutomaticReconnect(true);
+
+            this.client.connect(mqttClientOptions, actionListener);
+        } catch (MqttException e) {
+            actionListener.onFailure(null, e);
+        }
+    }
+
+    /**
+     * Disconnects from the Mqtt server
+     * @param actionListener the callback to call upon successful disconnection or error
+     */
+
+    public void disconnect(IUbiActionListener actionListener) {
+        try {
+            this.client.disconnect();
+            actionListener.onSuccess(null);
+        } catch (MqttException e) {
+            actionListener.onFailure(null, e);
+        }
+
+    }
+
+    /**
+     * Publishes a message on the connected Mqtt server
+     * @param topic the Mqtt topic to publish to
+     * @param message the message to publish
+     * @param qos the Mqtt qos to use
+     * @param retained publish the message as a retained Mqtt message if true
+     * @param actionListener the callback to call upon success or error
+     */
+
+    public void publish(String topic, String message, int qos, boolean retained, IUbiActionListener actionListener) {
+        try {
+            this.client.publish(topic, message.getBytes(), qos, retained, null, actionListener);
+        } catch (MqttException e) {
+            actionListener.onFailure(null, e);
+        }
+    }
+
+    /**
+     * Publishes a message on the connected Mqtt server with default qos=1 and retained = false
+     * @param topic the Mqtt topic to publish to
+     * @param message the message to publish
+     * @param actionListener the callback to call upon success or error
+     */
+
+    public void publish(String topic, String message,IUbiActionListener actionListener) {
+        publish(topic, message, 1,false, actionListener);
+    }
+
+
+    /**
+     * Publishes a signed message on the connected Mqtt server
+     * @param topic the Mqtt topic to publish to
+     * @param message the message to publish
+     * @param qos the Mqtt qos to use
+     * @param retained publish the message as a retained Mqtt message if true
+     * @param privateKey the private key in .pem format to sign the message with
+     * @param actionListener the callback to call upon success or error
+     */
+
+    public void publishSigned(String topic, String message, int qos, boolean retained, String privateKey, IUbiActionListener actionListener) {
+        try {
+            this.client.publish(topic, this.signMessage(message, privateKey).getBytes(), qos, retained, null, actionListener);
+        } catch (Exception e) {
+            actionListener.onFailure(null, e);
+        }
+    }
+
+    /**
+     * Publishes a signed message on the connected Mqtt server with default qos=1 and retained = false
+     * @param topic the Mqtt topic to publish to
+     * @param message the message to publish
+     * @param privateKey the private key in .pem format to sign the message with
+     * @param actionListener the callback to call upon success or error
+     */
+
+    public void publishSigned(String topic, String message, String privateKey, IUbiActionListener actionListener) {
+        publishSigned(topic, message,  1, false, privateKey,actionListener);
+    }
+
+    /**
+     * Subscribes to a Mqtt topic on the connected Mqtt server
+     * @param topic the Mqtt topic to subscribe to
+     * @param listener the listener function to call whenever a message matching the topic arrives
+     * @param actionListener the listener to be called upon successful subscription or error
+     */
+
+    public void subscribe(String topic, IUbiMessageListener listener, IUbiActionListener actionListener) {
         addSubscription(actionListener, topic, null, listener);
     }
 
-    public void subscribeSigned(IMqttActionListener actionListener, String topic, String[] publicKeys, IUbiMessageListener listener) {
+    /**
+     * Subscribes to messages signed by particular keypairs on a Mqtt topic on the connected Mqtt server
+     * @param topic the Mqtt topic to subscribe to
+     * @param publicKeys the public keys the messages are checked against
+     * @param listener the listener function to call whenever a message matching the topic and signed with one of the publicKeys arrives
+     * @param actionListener the callback to be called upon successful subscription or error
+     */
+
+    public void subscribeSigned(String topic, String[] publicKeys, IUbiMessageListener listener, IUbiActionListener actionListener) {
         addSubscription(actionListener, topic, publicKeys, listener);
     }
 
-    public void subscribeFromPublisher(IMqttActionListener actionListener, String topic, String publisherName, IUbiMessageListener listener) {
+    /**
+     * Subscribes to messages on a Mqtt topic on the connected Mqtt server signed by a known publiser The public key of the publiser
+     * is used for recognizing the messages originating from the publisher. The public key of the publisher is fetched from the Mqtt
+     * topic publishers/publishername/publicKey and kept up-to-date with the help of a regular Mqtt subscription
+     * @param topic the Mqtt topic to subscribe to
+     * @param publisherName the name of the known publisher
+     * @param listener the listener to call whenever a message matching the topic and signed with the publicKey arrives
+     * @param actionListener the callback to be called upon successful subscription or error
+     */
+
+    public void subscribeFromPublisher(String topic, String publisherName, IUbiMessageListener listener, IUbiActionListener actionListener) {
         PublicKeyChangeListener publicKeyChangeListener = new PublicKeyChangeListener(this, topic, listener, actionListener);
         publicKeyChangeListeners.add(publicKeyChangeListener);
 
         //subscribe to the public key of the publisher
         String publicKeyTopic = PUBLISHERS_PREFIX + publisherName + "/publicKey";
 
-        this.subscribe(new IMqttActionListener() {
+        this.subscribe(publicKeyTopic, publicKeyChangeListener, new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken iMqttToken) {
             }
@@ -197,15 +273,7 @@ public class UbiMqtt {
             public void onFailure(IMqttToken iMqttToken, Throwable throwable) {
                 actionListener.onFailure(iMqttToken, throwable);
             }
-        }, publicKeyTopic, publicKeyChangeListener);
+        });
 
-    }
-
-    private String signMessage(String message, String privateKey) throws IOException, JOSEException, ParseException {
-        return JwsHelper.signMessage(message, privateKey);
-    }
-
-    private boolean verifyMessage(String message, String publicKey) throws ParseException, JOSEException, java.text.ParseException, IOException {
-        return JwsHelper.verifySignature(message, publicKey);
     }
 }

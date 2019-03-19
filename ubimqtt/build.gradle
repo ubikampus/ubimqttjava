@@ -1,4 +1,6 @@
 apply plugin: 'java-library'
+apply plugin: 'com.github.dcendents.android-maven'
+group='com.github.ubikampus'
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
@@ -19,6 +21,27 @@ dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.11'
     testCompile "org.slf4j:slf4j-simple:1.7.9"
 
+}
+
+task sourcesJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+task myJavadocs(type: Javadoc) {
+    source = sourceSets.main.allJava
+    destinationDir = reporting.file("javadocs")
+    options.addStringOption("link", "https://www.eclipse.org/paho/files/javadoc")
+
+}
+
+task javadocJar(type: Jar, dependsOn: myJavadocs) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives javadocJar
 }
 
 sourceCompatibility = "8"

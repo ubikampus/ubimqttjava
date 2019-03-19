@@ -1,16 +1,15 @@
 package fi.helsinki.ubimqtt;
 
-import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 public class PublicKeyChangeListener implements IUbiMessageListener {
     private String mainListenerId = null;
-    private IMqttActionListener originalCallback = null;
+    private IUbiActionListener originalCallback = null;
     private UbiMqtt ubiMqtt = null;
     private String mainTopic = null;
     IUbiMessageListener mainListener = null;
 
-    public PublicKeyChangeListener(UbiMqtt ubiMqtt, String mainTopic, IUbiMessageListener mainListener, IMqttActionListener originalCallback)  {
+    public PublicKeyChangeListener(UbiMqtt ubiMqtt, String mainTopic, IUbiMessageListener mainListener, IUbiActionListener originalCallback)  {
         this.ubiMqtt = ubiMqtt;
         this.mainTopic = mainTopic;
         this.mainListener = mainListener;
@@ -27,7 +26,7 @@ public class PublicKeyChangeListener implements IUbiMessageListener {
         else {
             // This is the first time the public key arrives, subscribe to the main topic
             String[] publicKeys = {message.toString()};
-            ubiMqtt.subscribeSigned(originalCallback, mainTopic, publicKeys, mainListener);
+            ubiMqtt.subscribeSigned(mainTopic, publicKeys, mainListener, originalCallback);
         }
     }
 }
