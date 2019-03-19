@@ -31,7 +31,7 @@ task sourcesJar(type: Jar) {
 task myJavadocs(type: Javadoc) {
     source = sourceSets.main.allJava
     destinationDir = reporting.file("javadocs")
-    options.addStringOption("link", "https://www.eclipse.org/paho/files/javadoc")
+    options.links("https://www.eclipse.org/paho/files/javadoc")
 
 }
 
