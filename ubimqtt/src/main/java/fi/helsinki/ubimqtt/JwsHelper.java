@@ -93,7 +93,7 @@ public class JwsHelper {
 
         JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.ES512).
                 customParam("timestamp", System.currentTimeMillis()).
-                customParam("nonce", RandomStringUtils.randomAlphanumeric(12)).
+                customParam("messageid", RandomStringUtils.randomAlphanumeric(12)).
                 build();
 
         JWSObject jwsObject = new JWSObject(header, new Payload(message));

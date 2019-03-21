@@ -39,8 +39,8 @@ public class MessageValidator {
             return false;
 
         long timestamp = (Long)headerObj.get("timestamp");
-        String nonce = (String)headerObj.get("nonce");
+        String messageId = (String)headerObj.get("messageid");
 
-        return replayDetector.isValid(timestamp, nonce);
+        return replayDetector.isValid(timestamp, messageId);
     }
 }

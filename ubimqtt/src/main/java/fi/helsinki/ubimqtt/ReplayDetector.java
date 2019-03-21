@@ -18,7 +18,7 @@ public class ReplayDetector {
         //addEntry(System.currentTimeMillis(), "");
     }
 
-    private void addEntry(long timestamp, String nonce) {
+    private void addEntry(long timestamp, String messageId) {
 
         Map<String, Boolean> messages = null;
 
@@ -29,17 +29,17 @@ public class ReplayDetector {
             messages = buffer.get(timestamp);
         }
 
-        messages.put(nonce, true);
+        messages.put(messageId, true);
     }
 
-    public boolean isValid(long timestamp, String nonce) {
+    public boolean isValid(long timestamp, String messageId) {
         // Reject messages that are older than the bufferWindowInSeconds
 
         if (timestamp< System.currentTimeMillis() - (bufferWindowInSeconds*1000))
             return false;
 
-        // Reject message If there is an entry with exactly same timestamp and nonce
-        if (buffer.containsKey(timestamp) && buffer.get(timestamp).containsKey(nonce))
+        // Reject message If there is an entry with exactly same timestamp and messageId
+        if (buffer.containsKey(timestamp) && buffer.get(timestamp).containsKey(messageId))
             return false;
 
         // Remove entries that are older than bufferWindowInSeconds from buffer
@@ -55,7 +55,7 @@ public class ReplayDetector {
         }
         // Message is accptable, add it to the buffer
 
-        addEntry(timestamp, nonce);
+        addEntry(timestamp, messageId);
 
         return true;
     }
