@@ -8,6 +8,7 @@ import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.MqttTopic;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.json.simple.parser.ParseException;
 
@@ -15,10 +16,12 @@ import org.json.simple.parser.ParseException;
 import java.io.IOException;
 import java.security.Key;
 import java.security.interfaces.ECPublicKey;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.Vector;
 
@@ -38,25 +41,47 @@ public class UbiMqtt {
     private Map<String, Map<String, Subscription>> subscriptions;
     private Vector<PublicKeyChangeListener> publicKeyChangeListeners;
 
+    private ArrayList<Map.Entry<String,Subscription> > getSubscriptionsForTopic(String topic) {
+        ArrayList<Map.Entry<String,Subscription> > ret = new ArrayList<Map.Entry<String, Subscription> >();
+
+        Iterator<Map.Entry<String, Map<String, Subscription>>> iter = subscriptions.entrySet().iterator();
+
+        while (iter.hasNext()) {
+            Map.Entry<String, Map<String, Subscription>> entry = iter.next();
+
+            if (MqttTopic.isMatched(entry.getKey(), topic)) {
+                Iterator<Map.Entry<String, Subscription>> subscriptionIterator = entry.getValue().entrySet().iterator();
+                while (subscriptionIterator.hasNext()) {
+                    ret.add(subscriptionIterator.next());
+                }
+            }
+        }
+        return ret;
+    }
+
     private IMqttMessageListener messageListener = new IMqttMessageListener() {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-            if (subscriptions.containsKey(topic)) {
-                Iterator<Map.Entry<String, Subscription>> iter = subscriptions.get(topic).entrySet().iterator();
-                while (iter.hasNext()) {
-                    Map.Entry<String, Subscription> entry = iter.next();
-                    if (entry.getValue().getEcPublicKeys() != null) {
-                        // This is a topic where signed messages are expected, try if the signature matches some of the public keys
-                        ECPublicKey[] tempKeys = entry.getValue().getEcPublicKeys();
-                        for (int i=0; i< tempKeys.length; i++) {
-                            if (messageValidator.validateMessage(mqttMessage.toString(), tempKeys[i])) {
-                                entry.getValue().getListener().messageArrived(topic, mqttMessage, entry.getKey());
-                                break;
-                            }
+
+            ArrayList<Map.Entry<String, Subscription> > subscriptionsForTopic = getSubscriptionsForTopic(topic);
+
+            Iterator<Map.Entry<String, Subscription>> iterator = subscriptionsForTopic.iterator();
+
+            while (iterator.hasNext()) {
+                Map.Entry<String, Subscription> next = iterator.next();
+
+                if (next.getValue().getEcPublicKeys() != null) {
+                    // This is a topic where signed messages are expected, try if the signature matches some of the public keys
+                    ECPublicKey[] tempKeys = next.getValue().getEcPublicKeys();
+                    for (int i=0; i< tempKeys.length; i++) {
+                        if (messageValidator.validateMessage(mqttMessage.toString(), tempKeys[i])) {
+                            next.getValue().getListener().messageArrived(topic, mqttMessage, next.getKey());
+                            break;
                         }
-                    } else {
-                        entry.getValue().getListener().messageArrived(topic, mqttMessage, entry.getKey());
                     }
+                }
+                else {
+                    next.getValue().getListener().messageArrived(topic, mqttMessage, next.getKey());
                 }
             }
         }
