@@ -15,7 +15,7 @@ import java.util.concurrent.TimeoutException;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-// Make sure that a MQTT server answers at localhost:1883 before running these tests
+// Make sure that a MQTT server answers at mqtt before running these tests
 // If you have access to Ubikampus VMs, you can forward the Ubikampus MQTT server
 // port to localhost with the command "ssh -L 1883:10.120.0.4:1883 ubi@iot.ubikampus.net"
 
@@ -483,7 +483,7 @@ public class UbiMqttTest {
 
         CompletableFuture<String> publishFuture = new CompletableFuture<>();
 
-        ubiMqtt.publishSigned(ENCRYPTED_TOPIC, "Hello from Java!", publicKey, new IUbiActionListener() {
+        ubiMqtt.publishEncrypted(ENCRYPTED_TOPIC, "Hello from Java!", publicKey, new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanPublishAndSubscribeEncrypted() publishing to MQTT server succeeded");
