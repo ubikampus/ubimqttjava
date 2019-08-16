@@ -41,7 +41,7 @@ public class UbiMqtt {
     private Map<String, Map<String, Subscription>> subscriptions;
     private Vector<PublicKeyChangeListener> publicKeyChangeListeners;
 
-    private ArrayList<Map.Entry<String,Subscription> > getSubscriptionsForTopic(String topic) {
+    private ArrayList<Map.Entry<String,Subscription>> getSubscriptionsForTopic(String topic) {
         ArrayList<Map.Entry<String,Subscription> > ret = new ArrayList<Map.Entry<String, Subscription> >();
 
         Iterator<Map.Entry<String, Map<String, Subscription>>> iter = subscriptions.entrySet().iterator();
@@ -63,7 +63,7 @@ public class UbiMqtt {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
 
-            ArrayList<Map.Entry<String, Subscription> > subscriptionsForTopic = getSubscriptionsForTopic(topic);
+            ArrayList<Map.Entry<String, Subscription>> subscriptionsForTopic = getSubscriptionsForTopic(topic);
 
             Iterator<Map.Entry<String, Subscription>> iterator = subscriptionsForTopic.iterator();
 
@@ -81,7 +81,15 @@ public class UbiMqtt {
                     }
                 }
                 else {
-                    next.getValue().getListener().messageArrived(topic, mqttMessage, next.getKey());
+                    if (next.getValue().getDecryptPrivateKey() == null) {
+                        next.getValue().getListener().messageArrived(topic, mqttMessage, next.getKey());
+                    } else {
+                        String decryptMessage = JwsHelper.decryptMessage(mqttMessage.toString(),
+                                next.getValue().getDecryptPrivateKey());
+                        mqttMessage.setPayload(decryptMessage.getBytes());
+
+                        next.getValue().getListener().messageArrived(topic, mqttMessage, next.getKey());
+                    }
                 }
             }
         }
@@ -98,12 +106,29 @@ public class UbiMqtt {
     private void addSubscription(IUbiActionListener actionListener, String topic, String[] publicKeys, IUbiMessageListener listener) {
         try {
             if (!subscriptions.containsKey(topic))
-                subscriptions.put(topic, Collections.synchronizedMap(new HashMap<String, Subscription>()));
+                subscriptions.put(topic, Collections.synchronizedMap(new HashMap<>()));
 
             String listenerId = listenerCounter + "";
             listenerCounter++;
 
             subscriptions.get(topic).put(listenerId, new Subscription(topic, listener, publicKeys));
+
+            this.client.subscribe(topic, 1, null, actionListener, messageListener);
+        } catch (Exception e) {
+            e.printStackTrace();
+            actionListener.onFailure(null, e);
+        }
+    }
+
+    private void addSubscriptionEncrypted(IUbiActionListener actionListener, String topic, String[] publicKeys, String decryptPrivateKey, IUbiMessageListener listener) {
+        try {
+            if (!subscriptions.containsKey(topic))
+                subscriptions.put(topic, Collections.synchronizedMap(new HashMap<>()));
+
+            String listenerId = listenerCounter + "";
+            listenerCounter++;
+
+            subscriptions.get(topic).put(listenerId, new Subscription(topic, listener, publicKeys, decryptPrivateKey));
 
             this.client.subscribe(topic, 1, null, actionListener, messageListener);
         } catch (Exception e) {
@@ -179,7 +204,6 @@ public class UbiMqtt {
      * Disconnects from the Mqtt server
      * @param actionListener the callback to call upon successful disconnection or error
      */
-
     public void disconnect(IUbiActionListener actionListener) {
         try {
             this.client.disconnect();
@@ -250,14 +274,55 @@ public class UbiMqtt {
     }
 
     /**
+     * Publishes a message on the connected Mqtt server
+     * @param topic the Mqtt topic to publish to
+     * @param message the message to publish
+     * @param qos the Mqtt qos to use
+     * @param retained publish the message as a retained Mqtt message if true
+     * @param encryptPublicKey public key for the encryption
+     * @param actionListener the callback to call upon success or error
+     */
+    public void publishEncrypted(String topic, String message, int qos, boolean retained, String encryptPublicKey, IUbiActionListener actionListener) {
+        try {
+            this.client.publish(topic, this.encryptMessage(message, encryptPublicKey).getBytes(), qos, retained, null, actionListener);
+        } catch (Exception e) {
+            actionListener.onFailure(null, e);
+        }
+    }
+
+    /**
+     * Publishes a message on the connected Mqtt server with default qos=1 and retained = false
+     * @param topic the Mqtt topic to publish to
+     * @param message the message to publish
+     * @param encryptPublicKey public key for the encryption
+     * @param actionListener the callback to call upon success or error
+     */
+    public void publishEncrypted(String topic, String message, String encryptPublicKey, IUbiActionListener actionListener) {
+        publishEncrypted(topic, message, 1,false, encryptPublicKey, actionListener);
+    }
+
+    private String encryptMessage(String message, String publicKey) throws IOException, JOSEException {
+        return JwsHelper.encryptMessage(message, publicKey);
+    }
+
+    /**
      * Subscribes to a Mqtt topic on the connected Mqtt server
      * @param topic the Mqtt topic to subscribe to
      * @param listener the listener function to call whenever a message matching the topic arrives
      * @param actionListener the listener to be called upon successful subscription or error
      */
-
     public void subscribe(String topic, IUbiMessageListener listener, IUbiActionListener actionListener) {
         addSubscription(actionListener, topic, null, listener);
+    }
+
+    /**
+     * Subscribes to a Mqtt topic on the connected Mqtt server
+     * @param topic the Mqtt topic to subscribe to
+     * @param listener the listener function to call whenever a message matching the topic arrives
+     * @param actionListener the listener to be called upon successful subscription or error
+     */
+    public void subscribeEncrypted(String topic, IUbiMessageListener listener, String decryptPrivateKey, IUbiActionListener actionListener) {
+        addSubscriptionEncrypted(actionListener, topic, null, decryptPrivateKey, listener);
     }
 
     /**
