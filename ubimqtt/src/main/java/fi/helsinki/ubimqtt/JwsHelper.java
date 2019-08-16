@@ -160,11 +160,20 @@ public class JwsHelper {
 
       String header = ((JSONObject)signatureObject.get("protected")).toJSONString();
       String signature = (String)signatureObject.get("signature");
-
-
+      
       return Base64URL.encode(header)+"."+Base64URL.encode(payload)+"."+signature;
     }
 
+    /**
+     * Encrypts messages using 'ECDH_ES' and 'A128CBC_HS256' algorithms and EC public key.
+     * 
+     * @param message string representation of the data to be encrypted.
+     * @param ecPublicKey representation of public key used in encrypting data.
+     * 
+     * @return string representation of encrypted data.
+     * 
+     * @throws JOSEException if encrypting isn't possible.
+     */
     public static String encryptMessage(String message, ECPublicKey ecPublicKey) throws JOSEException {
         JWEAlgorithm alg = JWEAlgorithm.ECDH_ES;
         EncryptionMethod enc = EncryptionMethod.A128CBC_HS256;
@@ -175,10 +184,33 @@ public class JwsHelper {
         return jwe.serialize();
     }
 
+    /**
+     * Encrypts messages using 'ECDH_ES' and 'A128CBC_HS256' algorithms and EC public key.
+     * 
+     * @param message string representation of the data to be encrypted.
+     * @param publicKey representation of public key used in encrypting data.
+     * 
+     * @return string representation of encrypted data.
+     * 
+     * @throws JOSEException if encrypting isn't possible.
+     * @throws IOException if wrapping public key isn't possible.
+     */
     public static String encryptMessage(String message, String publicKey) throws IOException, JOSEException {
         return encryptMessage(message, createEcPublicKey(publicKey));
     }
 
+    /**
+     * Decrypts messages using EC private key.
+     *
+     * @param message string representation of data to be decrypted.
+     * @param privateKey representation of private key used in decrypting data.
+     * 
+     * @return string representation of message that was gotten from decryption.
+     * 
+     * @throws JOSEException if decrypting isn't possible.
+     * @throws IOException if wrapping private key isn't possible.
+     * @throws java.text.ParseException if parsing message isn't possible.
+     */
     public static String decryptMessage(String message, String privateKey) throws JOSEException, IOException, java.text.ParseException {
         // Parse the EC key pair
         PEMParser pemParser = new PEMParser(new StringReader(privateKey));

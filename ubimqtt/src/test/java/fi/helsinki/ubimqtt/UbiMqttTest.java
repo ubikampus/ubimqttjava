@@ -15,7 +15,7 @@ import java.util.concurrent.TimeoutException;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-// Make sure that a MQTT server answers at mqtt before running these tests
+// Make sure that a MQTT server answers at localhost:1883 before running these tests
 // If you have access to Ubikampus VMs, you can forward the Ubikampus MQTT server
 // port to localhost with the command "ssh -L 1883:10.120.0.4:1883 ubi@iot.ubikampus.net"
 
@@ -28,15 +28,15 @@ public class UbiMqttTest {
     private static final String KEY_TOPIC = "publishers/javatestpublisher/publicKey";
     private static final String JAVA_TEST_PUBLISHER = "javatestpublisher";
 
-    ScheduledThreadPoolExecutor delayer = new ScheduledThreadPoolExecutor(5);
+    private ScheduledThreadPoolExecutor delayer = new ScheduledThreadPoolExecutor(5);
 
-    public void log(String s) {
+    private void log(String s) {
         StackTraceElement l = new Exception().getStackTrace()[0];
         System.out.println(
                 l.getClassName() + "/" + l.getMethodName() + ":" + l.getLineNumber() + ": " + s);
     }
 
-    public <T> CompletableFuture<T> timeoutAfter(long timeout, TimeUnit unit) {
+    private <T> CompletableFuture<T> timeoutAfter(long timeout, TimeUnit unit) {
         CompletableFuture<T> result = new CompletableFuture<T>();
         delayer.schedule(() -> result.completeExceptionally(new TimeoutException()), timeout, unit);
         return result;
