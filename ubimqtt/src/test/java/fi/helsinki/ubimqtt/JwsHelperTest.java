@@ -33,14 +33,11 @@ public class JwsHelperTest {
         }
 
         try {
-            String compactResult = JwsHelper.signMessageToCompact("Hello world", privateKey);
-            System.out.println(compactResult);
+            String msg = "Hello world";
 
+            String compactResult = JwsHelper.signMessageToCompact(msg, privateKey);
             String jsonResult = JwsHelper.compactToJson(compactResult);
-            System.out.println(jsonResult);
-
             String newCompactResult = JwsHelper.jsonToCompact(jsonResult);
-            System.out.println(newCompactResult);
 
             assertEquals(compactResult, newCompactResult);
 

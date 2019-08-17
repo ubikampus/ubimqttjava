@@ -134,10 +134,6 @@ public class JwsHelper {
         String payload = new Base64URL(parts[1]).decodeToString();
         String signature = parts[2];
 
-        System.out.println("header: " + header);
-        System.out.println("payload: " + payload);
-        System.out.println("signature: " + signature);
-
         JSONObject obj = new JSONObject();
 
         JSONObject signatureObject = new JSONObject();
