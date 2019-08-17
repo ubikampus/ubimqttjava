@@ -432,7 +432,8 @@ public class UbiMqttTest {
             }
         };
 
-        ubiMqtt.subscribeEncrypted(ENCRYPTED_TOPIC, messageListener, privateKey, new IUbiActionListener() {
+        String[] privateKeys = {privateKey};
+        ubiMqtt.subscribeEncrypted(ENCRYPTED_TOPIC, privateKeys, messageListener, new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
                 log("testUbiMqtt_CanPublishAndSubscribeEncrypted() subscribing from MQTT server succeeded");
