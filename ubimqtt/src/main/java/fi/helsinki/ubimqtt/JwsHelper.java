@@ -14,7 +14,6 @@ import java.security.interfaces.ECPrivateKey;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-import org.bouncycastle.openssl.PEMException;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
@@ -28,34 +27,45 @@ import java.io.StringReader;
 import java.security.KeyPair;
 import java.security.interfaces.ECPublicKey;
 
+/**
+ * Static methods to handle signing, verifying, encrypting and decrypting messages using EC public and private keys.
+ * Using implementations of the algorithms provided by com.nimbusds.jose.
+ */
 public class JwsHelper {
+    public static boolean verifySignature(String json, ECPublicKey publicKey)
+            throws java.text.ParseException, JOSEException, ParseException {
 
-    public static boolean verifySignature(String json, ECPublicKey publicKey) throws java.text.ParseException, IOException, JOSEException, ParseException {
         return verifySignatureCompact(jsonToCompact(json), publicKey);
     }
 
-    public static boolean verifySignature(String json, String publicKey) throws java.text.ParseException, IOException, JOSEException, ParseException {
-    return verifySignatureCompact(jsonToCompact(json), publicKey);
+    public static boolean verifySignature(String json, String publicKey)
+            throws java.text.ParseException, IOException, JOSEException, ParseException {
+
+        return verifySignatureCompact(jsonToCompact(json), publicKey);
     }
 
     public static ECPublicKey createEcPublicKey(String publicKey) throws IOException {
+
         PEMParser pemParser = new PEMParser(new StringReader(publicKey));
-        SubjectPublicKeyInfo pemPublicKey = (SubjectPublicKeyInfo)pemParser.readObject();
+        SubjectPublicKeyInfo pemPublicKey = (SubjectPublicKeyInfo) pemParser.readObject();
 
         // Convert to Java (JCA) format
         JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
-        ECPublicKey ecPublicKey = (ECPublicKey)converter.getPublicKey(pemPublicKey);
+        ECPublicKey ecPublicKey = (ECPublicKey) converter.getPublicKey(pemPublicKey);
 
         pemParser.close();
 
         return ecPublicKey;
     }
 
-    public static boolean verifySignatureCompact(String compact, String publicKey) throws java.text.ParseException, IOException, JOSEException {
+    public static boolean verifySignatureCompact(String compact, String publicKey)
+            throws java.text.ParseException, IOException, JOSEException {
+
         return verifySignatureCompact(compact, createEcPublicKey(publicKey));
     }
 
-    public static boolean verifySignatureCompact(String compact, ECPublicKey ecPublicKey) throws java.text.ParseException, IOException, JOSEException {
+    public static boolean verifySignatureCompact(String compact, ECPublicKey ecPublicKey)
+            throws java.text.ParseException, JOSEException {
 
         String[] parts = compact.split("\\.");
 
@@ -69,17 +79,21 @@ public class JwsHelper {
         return jwsObject.verify(verifier);
     }
 
-    public static String signMessage( String message, String privateKey) throws JOSEException, ParseException, IOException {
+    public static String signMessage(String message, String privateKey)
+            throws JOSEException, ParseException, IOException {
+
         return compactToJson(signMessageToCompact(message, privateKey));
     }
 
-    public static String signMessageToCompact( String message, String privateKey) throws JOSEException, IOException {
+    public static String signMessageToCompact(String message, String privateKey)
+            throws JOSEException, IOException {
+
         //ECKey jwk = (ECKey) ECKey.parseFromPEMEncodedObjects(pemEncodedRSAPrivateKey);
 
         // Parse the EC key pair
         //PEMParser pemParser = new PEMParser(new InputStreamReader(new FileInputStream("ec512-key-pair.pem")));
         PEMParser pemParser = new PEMParser(new StringReader(privateKey));
-        PEMKeyPair pemKeyPair = (PEMKeyPair)pemParser.readObject();
+        PEMKeyPair pemKeyPair = (PEMKeyPair) pemParser.readObject();
 
         // Convert to Java (JCA) format
         JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
@@ -87,7 +101,7 @@ public class JwsHelper {
         pemParser.close();
 
         // Get private + public EC key
-        ECPrivateKey ecPrivateKey = (ECPrivateKey)keyPair.getPrivate();
+        ECPrivateKey ecPrivateKey = (ECPrivateKey) keyPair.getPrivate();
 
         //ECPublicKey publicKey = (ECPublicKey)keyPair.getPublic();
 
@@ -110,21 +124,19 @@ public class JwsHelper {
         jwsObject.sign(signer);
         */
 
-        String s = jwsObject.serialize();
-
-        return s;
+        return jwsObject.serialize();
     }
 
-    public static String compactToJson(String compact) throws ParseException{
+    public static String compactToJson(String compact) throws ParseException {
         String[] parts = compact.split("\\.");
 
         String header = new Base64URL(parts[0]).decodeToString();
         String payload = new Base64URL(parts[1]).decodeToString();
         String signature = parts[2];
 
-        System.out.println("header: " +header);
-        System.out.println("payload: " +payload);
-        System.out.println("signature: " +signature);
+        System.out.println("header: " + header);
+        System.out.println("payload: " + payload);
+        System.out.println("signature: " + signature);
 
         JSONObject obj = new JSONObject();
 
@@ -145,21 +157,18 @@ public class JwsHelper {
         return obj.toJSONString();
     }
 
+    public static String jsonToCompact(String json) throws ParseException {
+        JSONParser parser = new JSONParser();
+        JSONObject obj = (JSONObject) parser.parse(json);
 
-  public static String jsonToCompact(String json) throws ParseException {
-      JSONParser parser = new JSONParser();
-      JSONObject obj = (JSONObject) parser.parse(json);
+        String payload = (String) obj.get("payload");
 
-      String payload = (String)obj.get("payload");
+        JSONArray signaturesArray = (JSONArray) obj.get("signatures");
+        JSONObject signatureObject = (JSONObject) signaturesArray.get(0);
 
-      JSONArray signaturesArray = (JSONArray)obj.get("signatures");
-      JSONObject signatureObject = (JSONObject)signaturesArray.get(0);
+        String header = ((JSONObject) signatureObject.get("protected")).toJSONString();
+        String signature = (String) signatureObject.get("signature");
 
-      String header = ((JSONObject)signatureObject.get("protected")).toJSONString();
-      String signature = (String)signatureObject.get("signature");
-
-
-      String compact = Base64URL.encode(header)+"."+Base64URL.encode(payload)+"."+signature;
-      return compact;
+        return Base64URL.encode(header) + "." + Base64URL.encode(payload) + "." + signature;
     }
 }

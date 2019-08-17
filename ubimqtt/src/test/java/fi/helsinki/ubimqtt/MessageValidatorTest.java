@@ -7,9 +7,11 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class MessageValidatorTest {
-
     private String signMessage(String message) {
         java.security.Security.addProvider(com.nimbusds.jose.crypto.bc.BouncyCastleProviderSingleton.getInstance());
 
@@ -22,26 +24,19 @@ public class MessageValidatorTest {
 
             byte[] encoded = Files.readAllBytes(Paths.get(path));
             privateKey = new String(encoded, StandardCharsets.UTF_8);
-
         } catch (Exception e) {
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         try {
-            String compactResult = JwsHelper.signMessageToCompact("Hello world", privateKey);
-            System.out.println(compactResult);
-
+            String compactResult = JwsHelper.signMessageToCompact(message, privateKey);
             jsonResult = JwsHelper.compactToJson(compactResult);
-            System.out.println(jsonResult);
-
             String newCompactResult = JwsHelper.jsonToCompact(jsonResult);
-            System.out.println(newCompactResult);
 
             assertEquals(compactResult, newCompactResult);
-
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
         return jsonResult;
     }
@@ -49,7 +44,7 @@ public class MessageValidatorTest {
     @Test
     public void testMessageValidator_CanDetectReplayedMessage() {
         try {
-            String signedMessage = this.signMessage("Testjee");
+            String signedMessage = this.signMessage("TestWuu");
 
             MessageValidator messageValidator = new MessageValidator(60);
 
@@ -62,27 +57,27 @@ public class MessageValidatorTest {
                 byte[] encoded = Files.readAllBytes(Paths.get(path));
                 publicKey = new String(encoded, StandardCharsets.UTF_8);
             } catch (Exception e) {
-                assertEquals(null, e);
+                assertNull(e);
             }
 
-            System.out.println("Trying to validate message");
+            // Trying to validate message.
 
             boolean firstResult = messageValidator.validateMessage(signedMessage, JwsHelper.createEcPublicKey(publicKey));
-            assertEquals(true, firstResult);
+            assertTrue(firstResult);
 
             boolean secondResult = messageValidator.validateMessage(signedMessage, JwsHelper.createEcPublicKey(publicKey));
-            assertEquals(false, secondResult);
+            assertFalse(secondResult);
 
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
     }
 
     @Test
     public void testMessageValidator_CanDetectTooOldMessage() {
         try {
-            String signedMessage = this.signMessage("Testjee");
+            String signedMessage = this.signMessage("TestAAA");
 
             MessageValidator messageValidator = new MessageValidator(1);
 
@@ -95,19 +90,17 @@ public class MessageValidatorTest {
                 byte[] encoded = Files.readAllBytes(Paths.get(path));
                 publicKey = new String(encoded, StandardCharsets.UTF_8);
             } catch (Exception e) {
-                assertEquals(null, e);
+                assertNull(e);
             }
 
-            System.out.println("Trying to validate a message that is one second too old, sleeping 2 seconds");
-
+            // Trying to validate a message that is one second too old, sleeping 2 seconds.
             Thread.sleep(5000);
 
             boolean firstResult = messageValidator.validateMessage(signedMessage, JwsHelper.createEcPublicKey(publicKey));
-            assertEquals(false, firstResult);
-
+            assertFalse(firstResult);
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
     }
 }

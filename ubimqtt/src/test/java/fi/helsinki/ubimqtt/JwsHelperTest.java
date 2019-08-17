@@ -1,7 +1,5 @@
 package fi.helsinki.ubimqtt;
 
-import com.nimbusds.jose.JOSEException;
-
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -12,14 +10,17 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class JwsHelperTest {
-
     @Test
     public void testJwsHelper_CanSign() {
         java.security.Security.addProvider(com.nimbusds.jose.crypto.bc.BouncyCastleProviderSingleton.getInstance());
 
         String privateKey = "";
+
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key.pem";
@@ -28,7 +29,7 @@ public class JwsHelperTest {
             privateKey = new String(encoded, StandardCharsets.UTF_8);
 
         } catch (Exception e) {
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         try {
@@ -45,10 +46,9 @@ public class JwsHelperTest {
 
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
     }
-
 
     @Test
     public void testJwsHelper_CanSignAndVerify() {
@@ -56,6 +56,7 @@ public class JwsHelperTest {
 
         String privateKey = "";
         String publicKey = "";
+
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key.pem";
@@ -63,7 +64,7 @@ public class JwsHelperTest {
             byte[] encoded = Files.readAllBytes(Paths.get(path));
             privateKey = new String(encoded, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         try {
@@ -73,28 +74,24 @@ public class JwsHelperTest {
             byte[] encoded = Files.readAllBytes(Paths.get(path));
             publicKey = new String(encoded, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         try {
-            String compactResult = JwsHelper.signMessageToCompact("Hello world", privateKey);
-            System.out.println(compactResult);
+            String msg = "Hello world";
 
+            String compactResult = JwsHelper.signMessageToCompact(msg, privateKey);
             String jsonResult = JwsHelper.compactToJson(compactResult);
-            System.out.println(jsonResult);
-
             String newCompactResult = JwsHelper.jsonToCompact(jsonResult);
-            System.out.println(newCompactResult);
 
             assertEquals(compactResult, newCompactResult);
 
             boolean isVerified = JwsHelper.verifySignatureCompact(newCompactResult, publicKey);
 
-            assertEquals(true, isVerified);
-
+            assertTrue(isVerified);
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
     }
 
@@ -104,6 +101,7 @@ public class JwsHelperTest {
 
         String privateKey = "";
         String publicKey = "";
+
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key.pem";
@@ -111,7 +109,7 @@ public class JwsHelperTest {
             byte[] encoded = Files.readAllBytes(Paths.get(path));
             privateKey = new String(encoded, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         try {
@@ -121,32 +119,28 @@ public class JwsHelperTest {
             byte[] encoded = Files.readAllBytes(Paths.get(path));
             publicKey = new String(encoded, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         try {
-            String compactResult = JwsHelper.signMessageToCompact("Hello world", privateKey);
-            System.out.println(compactResult);
+            String msg = "Hello world";
 
+            String compactResult = JwsHelper.signMessageToCompact(msg, privateKey);
             String jsonResult = JwsHelper.compactToJson(compactResult);
-            System.out.println(jsonResult);
 
             JSONParser parser = new JSONParser();
 
             JSONObject obj = (JSONObject) parser.parse(jsonResult);
             JSONArray signaturesArray = (JSONArray) obj.get("signatures");
-            JSONObject signatureObject = (JSONObject)signaturesArray.get(0);
+            JSONObject signatureObject = (JSONObject) signaturesArray.get(0);
             signatureObject.put("signature","falsesignature");
-
 
             boolean isVerified = JwsHelper.verifySignature(obj.toJSONString(), publicKey);
 
-            assertEquals(false, isVerified);
-
+            assertFalse(isVerified);
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
     }
-
 }

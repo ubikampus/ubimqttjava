@@ -6,24 +6,24 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+/**
+ * Detector for noticing if replay has occurred.
+ */
 public class ReplayDetector {
-
     private SortedMap<Long, Map<String, Boolean>> buffer;
-    private int bufferWindowInSeconds = -1;
+    private int bufferWindowInSeconds;
 
     public ReplayDetector(int bufferWindowInSeconds) {
-
-        this.buffer = new TreeMap<Long, Map<String, Boolean>>();
+        this.buffer = new TreeMap<>();
         this.bufferWindowInSeconds = bufferWindowInSeconds;
         //addEntry(System.currentTimeMillis(), "");
     }
 
     private void addEntry(long timestamp, String messageId) {
-
-        Map<String, Boolean> messages = null;
+        Map<String, Boolean> messages;
 
         if (!buffer.containsKey(timestamp)) {
-            messages = new HashMap<String, Boolean>();
+            messages = new HashMap<>();
             buffer.put(timestamp, messages);
         } else {
             messages = buffer.get(timestamp);
@@ -34,30 +34,31 @@ public class ReplayDetector {
 
     public boolean isValid(long timestamp, String messageId) {
         // Reject messages that are older than the bufferWindowInSeconds
-
-        if (timestamp< System.currentTimeMillis() - (bufferWindowInSeconds*1000))
+        if (timestamp < System.currentTimeMillis() - (bufferWindowInSeconds * 1000)) {
             return false;
+        }
 
         // Reject message If there is an entry with exactly same timestamp and messageId
-        if (buffer.containsKey(timestamp) && buffer.get(timestamp).containsKey(messageId))
+        if (buffer.containsKey(timestamp) && buffer.get(timestamp).containsKey(messageId)) {
             return false;
+        }
 
         // Remove entries that are older than bufferWindowInSeconds from buffer
-
         Iterator<Long> iterator = buffer.keySet().iterator();
 
         while (iterator.hasNext()) {
             long key = iterator.next();
-            if (key < System.currentTimeMillis() - (bufferWindowInSeconds*1000))
-                iterator.remove();
-            else
-                break;
-        }
-        // Message is accptable, add it to the buffer
 
+            if (key < System.currentTimeMillis() - (bufferWindowInSeconds * 1000)) {
+                iterator.remove();
+            } else {
+                break;
+            }
+        }
+
+        // Message is acceptable, add it to the buffer
         addEntry(timestamp, messageId);
 
         return true;
     }
-
 }
