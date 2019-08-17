@@ -322,6 +322,7 @@ public class UbiMqtt {
      * Subscribes to a Mqtt topic on the connected Mqtt server decrypting all the messages that arrive.
      *
      * @param topic the Mqtt topic to subscribe to
+     * @param decryptPrivateKey the private keys the messages is decrypted against
      * @param listener the listener function to call whenever a message matching the topic arrives
      * @param actionListener the listener to be called upon successful subscription or error
      */
