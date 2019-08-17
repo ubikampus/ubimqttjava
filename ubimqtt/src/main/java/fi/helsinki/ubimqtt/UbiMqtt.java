@@ -81,13 +81,19 @@ public class UbiMqtt {
                     }
                 }
                 else {
-                    if (next.getValue().getDecryptPrivateKey() == null) {
-                        next.getValue().getListener().messageArrived(topic, mqttMessage, next.getKey());
-                    } else {
-                        String decryptMessage = JwsHelper.decryptMessage(mqttMessage.toString(),
-                                next.getValue().getDecryptPrivateKey());
-                        mqttMessage.setPayload(decryptMessage.getBytes());
+                    if (next.getValue().getDecryptPrivateKey() != null) {
+                        for (String privateKey : next.getValue().getDecryptPrivateKey()) {
+                            try {
+                                String decryptMessage = JwsHelper.decryptMessage(mqttMessage.toString(), privateKey);
+                                mqttMessage.setPayload(decryptMessage.getBytes());
+                                next.getValue().getListener().messageArrived(topic, mqttMessage, next.getKey());
 
+                                break;
+                            } catch(RuntimeException ex) {
+                                ex.printStackTrace();
+                            }
+                        }
+                    } else {
                         next.getValue().getListener().messageArrived(topic, mqttMessage, next.getKey());
                     }
                 }
@@ -120,7 +126,7 @@ public class UbiMqtt {
         }
     }
 
-    private void addSubscriptionEncrypted(IUbiActionListener actionListener, String topic, String[] publicKeys, String decryptPrivateKey, IUbiMessageListener listener) {
+    private void addSubscriptionEncrypted(IUbiActionListener actionListener, String topic, String[] publicKeys, String[] decryptPrivateKey, IUbiMessageListener listener) {
         try {
             if (!subscriptions.containsKey(topic))
                 subscriptions.put(topic, Collections.synchronizedMap(new HashMap<>()));
@@ -319,7 +325,7 @@ public class UbiMqtt {
      * @param listener the listener function to call whenever a message matching the topic arrives
      * @param actionListener the listener to be called upon successful subscription or error
      */
-    public void subscribeEncrypted(String topic, IUbiMessageListener listener, String decryptPrivateKey, IUbiActionListener actionListener) {
+    public void subscribeEncrypted(String topic, String[] decryptPrivateKey, IUbiMessageListener listener, IUbiActionListener actionListener) {
         addSubscriptionEncrypted(actionListener, topic, null, decryptPrivateKey, listener);
     }
 

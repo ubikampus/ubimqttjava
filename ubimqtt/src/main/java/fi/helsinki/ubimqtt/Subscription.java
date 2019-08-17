@@ -7,12 +7,13 @@ public class Subscription {
     private String topic;
     private IUbiMessageListener listener;
     private ECPublicKey[] ecPublicKeys;
-    private String decryptPrivateKey;
+    private String[] decryptPrivateKey;
 
-    public Subscription(String topic, IUbiMessageListener listener, String[] publicKeys, String decryptPrivateKey) throws IOException {
+    public Subscription(String topic, IUbiMessageListener listener, String[] publicKeys, String[] decryptPrivateKey) throws IOException {
         this.topic = topic;
         this.listener = listener;
         this.decryptPrivateKey = decryptPrivateKey;
+
         if (publicKeys != null) {
             this.ecPublicKeys = new ECPublicKey[publicKeys.length];
 
@@ -55,7 +56,7 @@ public class Subscription {
         return topic;
     }
 
-    public String getDecryptPrivateKey() {
+    public String[] getDecryptPrivateKey() {
         return decryptPrivateKey;
     }
 }
