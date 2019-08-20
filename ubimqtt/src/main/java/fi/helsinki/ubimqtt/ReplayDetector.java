@@ -13,17 +13,17 @@ public class ReplayDetector {
 
     public ReplayDetector(int bufferWindowInSeconds) {
 
-        this.buffer = new TreeMap<Long, Map<String, Boolean>>();
+        this.buffer = new TreeMap<>();
         this.bufferWindowInSeconds = bufferWindowInSeconds;
         //addEntry(System.currentTimeMillis(), "");
     }
 
     private void addEntry(long timestamp, String messageId) {
 
-        Map<String, Boolean> messages = null;
+        Map<String, Boolean> messages;
 
         if (!buffer.containsKey(timestamp)) {
-            messages = new HashMap<String, Boolean>();
+            messages = new HashMap<>();
             buffer.put(timestamp, messages);
         } else {
             messages = buffer.get(timestamp);

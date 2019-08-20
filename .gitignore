@@ -191,3 +191,4 @@ gradle-app.setting
 /keystore/reservator_release.keystore
 
 app/release/
+*.pem
