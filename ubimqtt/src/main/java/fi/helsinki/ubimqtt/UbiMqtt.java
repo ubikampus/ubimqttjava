@@ -12,75 +12,63 @@ import org.eclipse.paho.client.mqttv3.MqttTopic;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.json.simple.parser.ParseException;
 
-
 import java.io.IOException;
-import java.security.Key;
 import java.security.interfaces.ECPublicKey;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.Vector;
 
+/**
+ * Main class to implement actual Mqtt client and all it's commonly needed operations.
+ * Handling some important configurations so that they are out of the box for the user.
+ */
 public class UbiMqtt {
     public static final int DEFAULT_BUFFER_WINDOW_IN_SECONDS = 60;
-
     public static final String PUBLISHERS_PREFIX = "publishers/";
 
-    private String clientId = null;
-    private String serverAddress = null;
+    private String clientId;
+    private String serverAddress;
 
     private MqttAsyncClient client = null;
     private MessageValidator messageValidator;
 
-    int listenerCounter = 0;
+    private int listenerCounter = 0;
 
     private Map<String, Map<String, Subscription>> subscriptions;
     private Vector<PublicKeyChangeListener> publicKeyChangeListeners;
 
-    private ArrayList<Map.Entry<String,Subscription>> getSubscriptionsForTopic(String topic) {
-        ArrayList<Map.Entry<String,Subscription> > ret = new ArrayList<Map.Entry<String, Subscription> >();
+    private ArrayList<Map.Entry<String, Subscription>> getSubscriptionsForTopic(String topic) {
+        ArrayList<Map.Entry<String, Subscription>> ret = new ArrayList<>();
 
-        Iterator<Map.Entry<String, Map<String, Subscription>>> iter = subscriptions.entrySet().iterator();
-
-        while (iter.hasNext()) {
-            Map.Entry<String, Map<String, Subscription>> entry = iter.next();
-
+        for (Map.Entry<String, Map<String, Subscription>> entry : subscriptions.entrySet()) {
             if (MqttTopic.isMatched(entry.getKey(), topic)) {
-                Iterator<Map.Entry<String, Subscription>> subscriptionIterator = entry.getValue().entrySet().iterator();
-                while (subscriptionIterator.hasNext()) {
-                    ret.add(subscriptionIterator.next());
-                }
+                ret.addAll(entry.getValue().entrySet());
             }
         }
+
         return ret;
     }
 
     private IMqttMessageListener messageListener = new IMqttMessageListener() {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-
             ArrayList<Map.Entry<String, Subscription>> subscriptionsForTopic = getSubscriptionsForTopic(topic);
 
-            Iterator<Map.Entry<String, Subscription>> iterator = subscriptionsForTopic.iterator();
-
-            while (iterator.hasNext()) {
-                Map.Entry<String, Subscription> next = iterator.next();
-
+            for (Map.Entry<String, Subscription> next : subscriptionsForTopic) {
                 if (next.getValue().getEcPublicKeys() != null) {
                     // This is a topic where signed messages are expected, try if the signature matches some of the public keys
                     ECPublicKey[] tempKeys = next.getValue().getEcPublicKeys();
-                    for (int i=0; i< tempKeys.length; i++) {
-                        if (messageValidator.validateMessage(mqttMessage.toString(), tempKeys[i])) {
+
+                    for (ECPublicKey tempKey : tempKeys) {
+                        if (messageValidator.validateMessage(mqttMessage.toString(), tempKey)) {
                             next.getValue().getListener().messageArrived(topic, mqttMessage, next.getKey());
                             break;
                         }
                     }
-                }
-                else {
+                } else {
                     if (next.getValue().getDecryptPrivateKey() != null) {
                         for (String privateKey : next.getValue().getDecryptPrivateKey()) {
                             try {
@@ -89,7 +77,7 @@ public class UbiMqtt {
                                 next.getValue().getListener().messageArrived(topic, mqttMessage, next.getKey());
 
                                 break;
-                            } catch(RuntimeException ex) {
+                            } catch (RuntimeException ex) {
                                 ex.printStackTrace();
                             }
                         }
@@ -101,7 +89,7 @@ public class UbiMqtt {
         }
     };
 
-    protected void updatePublicKey(String topic, String listenerId, String publicKey) throws IOException {
+    void updatePublicKey(String topic, String listenerId, String publicKey) throws IOException {
         if (subscriptions.containsKey(topic) && subscriptions.get(topic).containsKey(listenerId)) {
             ECPublicKey[] tempKeys = new ECPublicKey[1];
             tempKeys[0] = JwsHelper.createEcPublicKey(publicKey);
@@ -111,10 +99,11 @@ public class UbiMqtt {
 
     private void addSubscription(IUbiActionListener actionListener, String topic, String[] publicKeys, IUbiMessageListener listener) {
         try {
-            if (!subscriptions.containsKey(topic))
+            if (!subscriptions.containsKey(topic)) {
                 subscriptions.put(topic, Collections.synchronizedMap(new HashMap<>()));
+            }
 
-            String listenerId = listenerCounter + "";
+            String listenerId = Integer.toString(listenerCounter);
             listenerCounter++;
 
             subscriptions.get(topic).put(listenerId, new Subscription(topic, listener, publicKeys));
@@ -126,12 +115,15 @@ public class UbiMqtt {
         }
     }
 
-    private void addSubscriptionEncrypted(IUbiActionListener actionListener, String topic, String[] publicKeys, String[] decryptPrivateKey, IUbiMessageListener listener) {
-        try {
-            if (!subscriptions.containsKey(topic))
-                subscriptions.put(topic, Collections.synchronizedMap(new HashMap<>()));
+    private void addSubscriptionEncrypted(IUbiActionListener actionListener, String topic, String[] publicKeys,
+                                          String[] decryptPrivateKey, IUbiMessageListener listener) {
 
-            String listenerId = listenerCounter + "";
+        try {
+            if (!subscriptions.containsKey(topic)) {
+                subscriptions.put(topic, Collections.synchronizedMap(new HashMap<>()));
+            }
+
+            String listenerId = Integer.toString(listenerCounter);
             listenerCounter++;
 
             subscriptions.get(topic).put(listenerId, new Subscription(topic, listener, publicKeys, decryptPrivateKey));
@@ -147,27 +139,18 @@ public class UbiMqtt {
         return JwsHelper.signMessage(message, privateKey);
     }
 
-
     /**
-     * Constructs a Ubimqtt instance with default bufferWindowInSeconds but does not connect to a server
+     * Constructs a Ubimqtt instance with default bufferWindowInSeconds but does not connect to a server.
+     *
      * @param serverAddress the Mqtt server to use
      */
     public UbiMqtt(String serverAddress) {
-        this.clientId = UUID.randomUUID().toString();
-        this.messageValidator = new MessageValidator(DEFAULT_BUFFER_WINDOW_IN_SECONDS);
-
-        this.subscriptions = Collections.synchronizedMap(new HashMap<String, Map<String, Subscription>>());
-        this.publicKeyChangeListeners = new Vector<PublicKeyChangeListener>();
-
-        if (serverAddress.startsWith("tcp://"))
-            this.serverAddress = serverAddress;
-        else
-            this.serverAddress = "tcp://" + serverAddress;
-
+        this(serverAddress, DEFAULT_BUFFER_WINDOW_IN_SECONDS);
     }
 
     /**
-     * Constructs a Ubimqtt instance but does not connect to a server
+     * Constructs a Ubimqtt instance but does not connect to a server.
+     *
      * @param serverAddress the Mqtt server to use
      * @param bufferWindowInSeconds the maximum acceptable age for signed messages, older signed messages will be discarded
      */
@@ -175,18 +158,19 @@ public class UbiMqtt {
         this.clientId = UUID.randomUUID().toString();
         this.messageValidator = new MessageValidator(bufferWindowInSeconds);
 
-        this.subscriptions = Collections.synchronizedMap(new HashMap<String, Map<String, Subscription>>());
-        this.publicKeyChangeListeners = new Vector<PublicKeyChangeListener>();
+        this.subscriptions = Collections.synchronizedMap(new HashMap<>());
+        this.publicKeyChangeListeners = new Vector<>();
 
-        if (serverAddress.startsWith("tcp://"))
+        if (serverAddress.startsWith("tcp://")) {
             this.serverAddress = serverAddress;
-        else
+        } else {
             this.serverAddress = "tcp://" + serverAddress;
-
+        }
     }
 
     /**
-     * Connecs to the Mqtt server the address of which was given as a constructor parameter
+     * Connecs to the Mqtt server the address of which was given as a constructor parameter.
+     *
      * @param actionListener the listener to call upon connection or error
      */
     public void connect(IUbiActionListener actionListener) {
@@ -204,7 +188,8 @@ public class UbiMqtt {
     }
 
     /**
-     * Disconnects from the Mqtt server
+     * Disconnects from the Mqtt server.
+     *
      * @param actionListener the callback to call upon successful disconnection or error
      */
     public void disconnect(IUbiActionListener actionListener) {
@@ -218,7 +203,8 @@ public class UbiMqtt {
     }
 
     /**
-     * Publishes a message on the connected Mqtt server
+     * Publishes a message on the connected Mqtt server.
+     *
      * @param topic the Mqtt topic to publish to
      * @param message the message to publish
      * @param qos the Mqtt qos to use
@@ -234,18 +220,20 @@ public class UbiMqtt {
     }
 
     /**
-     * Publishes a message on the connected Mqtt server with default qos=1 and retained = false
+     * Publishes a message on the connected Mqtt server with default qos = 1 and retained = false.
+     *
      * @param topic the Mqtt topic to publish to
      * @param message the message to publish
      * @param actionListener the callback to call upon success or error
      */
-    public void publish(String topic, String message,IUbiActionListener actionListener) {
-        publish(topic, message, 1,false, actionListener);
+    public void publish(String topic, String message, IUbiActionListener actionListener) {
+        publish(topic, message, 1, false, actionListener);
     }
 
 
     /**
-     * Publishes a signed message on the connected Mqtt server
+     * Publishes a signed message on the connected Mqtt server.
+     *
      * @param topic the Mqtt topic to publish to
      * @param message the message to publish
      * @param qos the Mqtt qos to use
@@ -262,14 +250,15 @@ public class UbiMqtt {
     }
 
     /**
-     * Publishes a signed message on the connected Mqtt server with default qos=1 and retained = false
+     * Publishes a signed message on the connected Mqtt server with default qos = 1 and retained = false.
+     *
      * @param topic the Mqtt topic to publish to
      * @param message the message to publish
      * @param privateKey the private key in .pem format to sign the message with
      * @param actionListener the callback to call upon success or error
      */
     public void publishSigned(String topic, String message, String privateKey, IUbiActionListener actionListener) {
-        publishSigned(topic, message,  1, false, privateKey,actionListener);
+        publishSigned(topic, message, 1, false, privateKey, actionListener);
     }
 
     /**
@@ -283,7 +272,9 @@ public class UbiMqtt {
      * @param encryptPublicKey public key for the encryption
      * @param actionListener the callback to call upon success or error
      */
-    public void publishEncrypted(String topic, String message, int qos, boolean retained, String encryptPublicKey, IUbiActionListener actionListener) {
+    public void publishEncrypted(String topic, String message, int qos, boolean retained,
+                                 String encryptPublicKey, IUbiActionListener actionListener) {
+
         try {
             this.client.publish(topic, this.encryptMessage(message, encryptPublicKey).getBytes(), qos, retained, null, actionListener);
         } catch (Exception e) {
@@ -292,7 +283,7 @@ public class UbiMqtt {
     }
 
     /**
-     * Publishes a message on the connected Mqtt server with default qos=1 and retained = false.
+     * Publishes a message on the connected Mqtt server with default qos = 1 and retained = false.
      * Encrypting all the messages which are going to be published.
      *
      * @param topic the Mqtt topic to publish to
@@ -301,7 +292,7 @@ public class UbiMqtt {
      * @param actionListener the callback to call upon success or error
      */
     public void publishEncrypted(String topic, String message, String encryptPublicKey, IUbiActionListener actionListener) {
-        publishEncrypted(topic, message, 1,false, encryptPublicKey, actionListener);
+        publishEncrypted(topic, message, 1, false, encryptPublicKey, actionListener);
     }
 
     private String encryptMessage(String message, String publicKey) throws IOException, JOSEException {
@@ -309,7 +300,8 @@ public class UbiMqtt {
     }
 
     /**
-     * Subscribes to a Mqtt topic on the connected Mqtt server
+     * Subscribes to a Mqtt topic on the connected Mqtt server.
+     *
      * @param topic the Mqtt topic to subscribe to
      * @param listener the listener function to call whenever a message matching the topic arrives
      * @param actionListener the listener to be called upon successful subscription or error
@@ -331,7 +323,8 @@ public class UbiMqtt {
     }
 
     /**
-     * Subscribes to messages signed by particular keypairs on a Mqtt topic on the connected Mqtt server
+     * Subscribes to messages signed by particular keypairs on a Mqtt topic on the connected Mqtt server.
+     *
      * @param topic the Mqtt topic to subscribe to
      * @param publicKeys the public keys the messages are checked against
      * @param listener the listener function to call whenever a message matching the topic and signed with one of the publicKeys arrives
@@ -342,9 +335,10 @@ public class UbiMqtt {
     }
 
     /**
-     * Subscribes to messages on a Mqtt topic on the connected Mqtt server signed by a known publiser The public key of the publiser
+     * Subscribes to messages on a Mqtt topic on the connected Mqtt server signed by a known publiser The public key of the publisher
      * is used for recognizing the messages originating from the publisher. The public key of the publisher is fetched from the Mqtt
-     * topic publishers/publishername/publicKey and kept up-to-date with the help of a regular Mqtt subscription
+     * topic publishers/publishername/publicKey and kept up-to-date with the help of a regular Mqtt subscription.
+     *
      * @param topic the Mqtt topic to subscribe to
      * @param publisherName the name of the known publisher
      * @param listener the listener to call whenever a message matching the topic and signed with the publicKey arrives
@@ -354,7 +348,7 @@ public class UbiMqtt {
         PublicKeyChangeListener publicKeyChangeListener = new PublicKeyChangeListener(this, topic, listener, actionListener);
         publicKeyChangeListeners.add(publicKeyChangeListener);
 
-        //subscribe to the public key of the publisher
+        // Subscribe to the public key of the publisher
         String publicKeyTopic = PUBLISHERS_PREFIX + publisherName + "/publicKey";
 
         this.subscribe(publicKeyTopic, publicKeyChangeListener, new IUbiActionListener() {

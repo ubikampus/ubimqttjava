@@ -12,6 +12,7 @@ import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
+
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -28,12 +29,12 @@ import java.security.interfaces.ECPublicKey;
 import static org.junit.Assert.*;
 
 public class JwsHelperTest {
-
     @Test
     public void testJwsHelper_CanSign() {
         java.security.Security.addProvider(com.nimbusds.jose.crypto.bc.BouncyCastleProviderSingleton.getInstance());
 
         String privateKey = "";
+
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key.pem";
@@ -46,14 +47,11 @@ public class JwsHelperTest {
         }
 
         try {
-            String compactResult = JwsHelper.signMessageToCompact("Hello world", privateKey);
-            System.out.println(compactResult);
+            String msg = "Hello world";
 
+            String compactResult = JwsHelper.signMessageToCompact(msg, privateKey);
             String jsonResult = JwsHelper.compactToJson(compactResult);
-            System.out.println(jsonResult);
-
             String newCompactResult = JwsHelper.jsonToCompact(jsonResult);
-            System.out.println(newCompactResult);
 
             assertEquals(compactResult, newCompactResult);
 
@@ -63,13 +61,13 @@ public class JwsHelperTest {
         }
     }
 
-
     @Test
     public void testJwsHelper_CanSignAndVerify() {
         java.security.Security.addProvider(com.nimbusds.jose.crypto.bc.BouncyCastleProviderSingleton.getInstance());
 
         String privateKey = "";
         String publicKey = "";
+
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key.pem";
@@ -91,21 +89,17 @@ public class JwsHelperTest {
         }
 
         try {
-            String compactResult = JwsHelper.signMessageToCompact("Hello world", privateKey);
-            System.out.println(compactResult);
+            String msg = "Hello world";
 
+            String compactResult = JwsHelper.signMessageToCompact(msg, privateKey);
             String jsonResult = JwsHelper.compactToJson(compactResult);
-            System.out.println(jsonResult);
-
             String newCompactResult = JwsHelper.jsonToCompact(jsonResult);
-            System.out.println(newCompactResult);
 
             assertEquals(compactResult, newCompactResult);
 
             boolean isVerified = JwsHelper.verifySignatureCompact(newCompactResult, publicKey);
 
             assertTrue(isVerified);
-
         } catch (Exception e) {
             e.printStackTrace();
             assertNull(e);
@@ -118,6 +112,7 @@ public class JwsHelperTest {
 
         String privateKey = "";
         String publicKey = "";
+
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key.pem";
@@ -139,24 +134,21 @@ public class JwsHelperTest {
         }
 
         try {
-            String compactResult = JwsHelper.signMessageToCompact("Hello world", privateKey);
-            System.out.println(compactResult);
+            String msg = "Hello world";
 
+            String compactResult = JwsHelper.signMessageToCompact(msg, privateKey);
             String jsonResult = JwsHelper.compactToJson(compactResult);
-            System.out.println(jsonResult);
 
             JSONParser parser = new JSONParser();
 
             JSONObject obj = (JSONObject) parser.parse(jsonResult);
             JSONArray signaturesArray = (JSONArray) obj.get("signatures");
-            JSONObject signatureObject = (JSONObject)signaturesArray.get(0);
+            JSONObject signatureObject = (JSONObject) signaturesArray.get(0);
             signatureObject.put("signature","falsesignature");
-
 
             boolean isVerified = JwsHelper.verifySignature(obj.toJSONString(), publicKey);
 
             assertFalse(isVerified);
-
         } catch (Exception e) {
             e.printStackTrace();
             assertNull(e);
@@ -169,6 +161,7 @@ public class JwsHelperTest {
 
         String privateKey = "";
         String publicKey = "";
+
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key.pem";
@@ -222,6 +215,7 @@ public class JwsHelperTest {
 
         String privateKey = "";
         String publicKey = "";
+
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key.pem";

@@ -15,12 +15,12 @@ import java.util.concurrent.TimeoutException;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-// Make sure that a MQTT server answers at localhost:1883 before running these tests
-// If you have access to Ubikampus VMs, you can forward the Ubikampus MQTT server
-// port to localhost with the command "ssh -L 1883:10.120.0.4:1883 ubi@iot.ubikampus.net"
-
+/**
+ * Make sure that a MQTT server answers at localhost:1883 before running these tests
+ * If you have access to Ubikampus VMs, you can forward the Ubikampus MQTT server
+ * port to localhost with the command "ssh -L 1883:10.120.0.4:1883 ubi@iot.ubikampus.net"
+ */
 public class UbiMqttTest {
-
     private static final String TOPIC = "test/javatesttopic";
     private static final String SIGNED_TOPIC = "test/javasignedtesttopic";
     private static final String ENCRYPTED_TOPIC = "test/javaencryptedtesttopic";
@@ -32,13 +32,12 @@ public class UbiMqttTest {
 
     private void log(String s) {
         StackTraceElement l = new Exception().getStackTrace()[0];
-        System.out.println(
-                l.getClassName() + "/" + l.getMethodName() + ":" + l.getLineNumber() + ": " + s);
+        System.out.println(l.getClassName() + "/" + l.getMethodName() + ":" + l.getLineNumber() + ": " + s);
     }
 
-    private <T> CompletableFuture<T> timeoutAfter(long timeout, TimeUnit unit) {
+    private <T> CompletableFuture<T> timeoutAfter() {
         CompletableFuture<T> result = new CompletableFuture<T>();
-        delayer.schedule(() -> result.completeExceptionally(new TimeoutException()), timeout, unit);
+        delayer.schedule(() -> result.completeExceptionally(new TimeoutException()), (long) 10, TimeUnit.SECONDS);
         return result;
     }
 
@@ -63,6 +62,7 @@ public class UbiMqttTest {
                 future.complete("failure");
             }
         });
+
         try {
             assertEquals("success", future.get(5, TimeUnit.SECONDS));
 
@@ -80,15 +80,16 @@ public class UbiMqttTest {
                     disconnectFuture.complete("failure");
                 }
             });
+
             try {
                 assertEquals("success", disconnectFuture.get(5, TimeUnit.SECONDS));
             } catch (Exception e) {
                 e.printStackTrace();
-                assertEquals(null, e);
+                assertNull(e);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
     }
 
@@ -118,7 +119,7 @@ public class UbiMqttTest {
             assertEquals("failure", future.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
     }
 
@@ -143,11 +144,12 @@ public class UbiMqttTest {
                 future.complete("failure");
             }
         });
+
         try {
             assertEquals("success", future.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         CompletableFuture<String> subscribeFuture = new CompletableFuture<>();
@@ -160,6 +162,7 @@ public class UbiMqttTest {
                 messageFuture.complete(mqttMessage.toString());
             }
         };
+
         ubiMqtt.subscribe("test/javatesttopic", messageListener, new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
@@ -173,15 +176,17 @@ public class UbiMqttTest {
                 subscribeFuture.complete("failure");
             }
         });
+
         try {
             assertEquals("success", subscribeFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         try {
-            messageFuture.acceptEither(timeoutAfter(10, TimeUnit.SECONDS), message -> assertEquals("Hello from Java!", message))
+            messageFuture
+                    .acceptEither(timeoutAfter(), message -> assertEquals("Hello from Java!", message))
                     .thenAccept(message -> {
                         CompletableFuture<String> disconnectFuture = new CompletableFuture<>();
                         ubiMqtt.disconnect(new IUbiActionListener() {
@@ -197,16 +202,17 @@ public class UbiMqttTest {
                                 disconnectFuture.complete("failure");
                             }
                         });
+
                         try {
                             assertEquals("success", disconnectFuture.get(5, TimeUnit.SECONDS));
                         } catch (Exception e) {
                             e.printStackTrace();
-                            assertEquals(null, e);
+                            assertNull(e);
                         }
                     });
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         CompletableFuture<String> publishFuture = new CompletableFuture<>();
@@ -224,13 +230,13 @@ public class UbiMqttTest {
                 publishFuture.complete("failure");
             }
         });
+
         try {
             assertEquals("success", publishFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
-
     }
 
     @Test
@@ -238,27 +244,26 @@ public class UbiMqttTest {
         log("testUbiMqtt_CanPublishAndSubscribeSigned()");
 
         String privateKey = "";
+        String publicKey = "";
+
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key.pem";
 
             byte[] encoded = Files.readAllBytes(Paths.get(path));
             privateKey = new String(encoded, StandardCharsets.UTF_8);
-
         } catch (Exception e) {
-            assertEquals(null, e);
+            assertNull(e);
         }
 
-        String publicKey = "";
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key-public.pem";
 
             byte[] encoded = Files.readAllBytes(Paths.get(path));
             publicKey = new String(encoded, StandardCharsets.UTF_8);
-
         } catch (Exception e) {
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         CompletableFuture<String> future = new CompletableFuture<>();
@@ -278,11 +283,12 @@ public class UbiMqttTest {
                 future.complete("failure");
             }
         });
+
         try {
             assertEquals("success", future.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         CompletableFuture<String> subscribeFuture = new CompletableFuture<>();
@@ -295,6 +301,7 @@ public class UbiMqttTest {
                 messageFuture.complete(mqttMessage.toString());
             }
         };
+
         String[] publicKeys = {publicKey};
 
         ubiMqtt.subscribeSigned(SIGNED_TOPIC, publicKeys, messageListener, new IUbiActionListener() {
@@ -310,15 +317,17 @@ public class UbiMqttTest {
                 subscribeFuture.complete("failure");
             }
         });
+
         try {
             assertEquals("success", subscribeFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         try {
-            messageFuture.acceptEither(timeoutAfter(10, TimeUnit.SECONDS), message -> assertEquals("Hello from Java!", message))
+            messageFuture
+                    .acceptEither(timeoutAfter(), message -> assertEquals("Hello from Java!", message))
                     .thenAccept(message -> {
                         CompletableFuture<String> disconnectFuture = new CompletableFuture<>();
                         ubiMqtt.disconnect(new IUbiActionListener() {
@@ -334,16 +343,17 @@ public class UbiMqttTest {
                                 disconnectFuture.complete("failure");
                             }
                         });
+
                         try {
                             assertEquals("success", disconnectFuture.get(5, TimeUnit.SECONDS));
                         } catch (Exception e) {
                             e.printStackTrace();
-                            assertEquals(null, e);
+                            assertNull(e);
                         }
                     });
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         CompletableFuture<String> publishFuture = new CompletableFuture<>();
@@ -361,39 +371,38 @@ public class UbiMqttTest {
                 publishFuture.complete("failure");
             }
         });
+
         try {
             assertEquals("success", publishFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
-
     }
 
     @Test
     public void testUbiMqtt_CanPublishAndSubscribeEncrypted() {
         log("testUbiMqtt_CanPublishAndSubscribeEncrypted()");
 
+        String publicKey = "";
         String privateKey = "";
+
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key.pem";
 
             byte[] encoded = Files.readAllBytes(Paths.get(path));
             privateKey = new String(encoded, StandardCharsets.UTF_8);
-
         } catch (Exception e) {
             assertNull(e);
         }
 
-        String publicKey = "";
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key-public.pem";
 
             byte[] encoded = Files.readAllBytes(Paths.get(path));
             publicKey = new String(encoded, StandardCharsets.UTF_8);
-
         } catch (Exception e) {
             assertNull(e);
         }
@@ -414,6 +423,7 @@ public class UbiMqttTest {
                 future.complete("failure");
             }
         });
+
         try {
             assertEquals("success", future.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
@@ -446,6 +456,7 @@ public class UbiMqttTest {
                 subscribeFuture.complete("failure");
             }
         });
+
         try {
             assertEquals("success", subscribeFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
@@ -454,7 +465,7 @@ public class UbiMqttTest {
         }
 
         try {
-            messageFuture.acceptEither(timeoutAfter(10, TimeUnit.SECONDS), message -> assertEquals("Hello from Java!", message))
+            messageFuture.acceptEither(timeoutAfter(), message -> assertEquals("Hello from Java!", message))
                     .thenAccept(message -> {
                         CompletableFuture<String> disconnectFuture = new CompletableFuture<>();
                         ubiMqtt.disconnect(new IUbiActionListener() {
@@ -470,6 +481,7 @@ public class UbiMqttTest {
                                 disconnectFuture.complete("failure");
                             }
                         });
+
                         try {
                             assertEquals("success", disconnectFuture.get(5, TimeUnit.SECONDS));
                         } catch (Exception e) {
@@ -497,6 +509,7 @@ public class UbiMqttTest {
                 publishFuture.complete("failure");
             }
         });
+
         try {
             assertEquals("success", publishFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
@@ -510,27 +523,26 @@ public class UbiMqttTest {
         log("testUbiMqtt_CanSubscribeFromKnownPublisher()");
 
         String privateKey = "";
+        String publicKey = "";
+
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key.pem";
 
             byte[] encoded = Files.readAllBytes(Paths.get(path));
             privateKey = new String(encoded, StandardCharsets.UTF_8);
-
         } catch (Exception e) {
-            assertEquals(null, e);
+            assertNull(e);
         }
 
-        String publicKey = "";
         try {
             String home = System.getProperty("user.home");
             String path = home + "/.private/ubimqtt-testing-key-public.pem";
 
             byte[] encoded = Files.readAllBytes(Paths.get(path));
             publicKey = new String(encoded, StandardCharsets.UTF_8);
-
         } catch (Exception e) {
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         CompletableFuture<String> future = new CompletableFuture<>();
@@ -550,11 +562,12 @@ public class UbiMqttTest {
                 future.complete("failure");
             }
         });
+
         try {
             assertEquals("success", future.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         // Publish the the a public key for our "known" publisher
@@ -574,11 +587,12 @@ public class UbiMqttTest {
                 publishKeyFuture.complete("failure");
             }
         });
+
         try {
             assertEquals("success", publishKeyFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         CompletableFuture<String> subscribeFuture = new CompletableFuture<>();
@@ -591,6 +605,7 @@ public class UbiMqttTest {
                 messageFuture.complete(mqttMessage.toString());
             }
         };
+
         ubiMqtt.subscribeFromPublisher("test/javatesttopic", JAVA_TEST_PUBLISHER, messageListener, new IUbiActionListener() {
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
@@ -604,15 +619,17 @@ public class UbiMqttTest {
                 subscribeFuture.complete("failure");
             }
         });
+
         try {
             assertEquals("success", subscribeFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         try {
-            messageFuture.acceptEither(timeoutAfter(10, TimeUnit.SECONDS), message -> assertEquals("Hello from Java!", message))
+            messageFuture
+                    .acceptEither(timeoutAfter(), message -> assertEquals("Hello from Java!", message))
                     .thenAccept(message -> {
                         CompletableFuture<String> disconnectFuture = new CompletableFuture<>();
                         ubiMqtt.disconnect(new IUbiActionListener() {
@@ -628,16 +645,17 @@ public class UbiMqttTest {
                                 disconnectFuture.complete("failure");
                             }
                         });
+
                         try {
                             assertEquals("success", disconnectFuture.get(5, TimeUnit.SECONDS));
                         } catch (Exception e) {
                             e.printStackTrace();
-                            assertEquals(null, e);
+                            assertNull(e);
                         }
                     });
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
 
         CompletableFuture<String> publishFuture = new CompletableFuture<>();
@@ -655,12 +673,12 @@ public class UbiMqttTest {
                 publishFuture.complete("failure");
             }
         });
+
         try {
             assertEquals("success", publishFuture.get(5, TimeUnit.SECONDS));
         } catch (Exception e) {
             e.printStackTrace();
-            assertEquals(null, e);
+            assertNull(e);
         }
-
     }
 }

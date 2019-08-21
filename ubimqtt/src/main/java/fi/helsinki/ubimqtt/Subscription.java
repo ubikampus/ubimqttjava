@@ -3,6 +3,10 @@ package fi.helsinki.ubimqtt;
 import java.io.IOException;
 import java.security.interfaces.ECPublicKey;
 
+/**
+ * Wrapper for the event when client subscribes to a topic
+ * and starts to listen all the messages in that topic.
+ */
 public class Subscription {
     private String topic;
     private IUbiMessageListener listener;
@@ -17,7 +21,7 @@ public class Subscription {
         if (publicKeys != null) {
             this.ecPublicKeys = new ECPublicKey[publicKeys.length];
 
-            for (int i=0; i<publicKeys.length; i++) {
+            for (int i = 0; i < publicKeys.length; i++) {
                 this.ecPublicKeys[i] = JwsHelper.createEcPublicKey(publicKeys[i]);
             }
         } else {
@@ -29,10 +33,11 @@ public class Subscription {
         this.topic = topic;
         this.listener = listener;
         this.decryptPrivateKey = null;
+
         if (publicKeys != null) {
             this.ecPublicKeys = new ECPublicKey[publicKeys.length];
 
-            for (int i=0; i<publicKeys.length; i++) {
+            for (int i = 0; i < publicKeys.length; i++) {
                 this.ecPublicKeys[i] = JwsHelper.createEcPublicKey(publicKeys[i]);
             }
         } else {
