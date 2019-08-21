@@ -3,11 +3,11 @@ package fi.helsinki.ubimqtt;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 public class PublicKeyChangeListener implements IUbiMessageListener {
-    private String mainListenerId = null;
-    private IUbiActionListener originalCallback = null;
-    private UbiMqtt ubiMqtt = null;
-    private String mainTopic = null;
-    IUbiMessageListener mainListener = null;
+    private String mainListenerId;
+    private IUbiActionListener originalCallback;
+    private UbiMqtt ubiMqtt;
+    private String mainTopic;
+    private IUbiMessageListener mainListener;
 
     public PublicKeyChangeListener(UbiMqtt ubiMqtt, String mainTopic, IUbiMessageListener mainListener, IUbiActionListener originalCallback)  {
         this.ubiMqtt = ubiMqtt;
