@@ -2,9 +2,11 @@ package fi.helsinki.ubimqtt;
 
 import com.nimbusds.jose.JOSEException;
 
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
+import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -25,7 +27,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.Vector;
 
-public class UbiMqtt {
+public class UbiMqtt implements MqttCallbackExtended {
+
     public static final int DEFAULT_BUFFER_WINDOW_IN_SECONDS = 60;
 
     public static final String PUBLISHERS_PREFIX = "publishers/";
@@ -40,6 +43,60 @@ public class UbiMqtt {
 
     private Map<String, Map<String, Subscription>> subscriptions;
     private Vector<PublicKeyChangeListener> publicKeyChangeListeners;
+
+
+    // MqttCallbackExtended implementation
+
+    @Override
+    public void connectComplete(boolean b, String s) {
+        Logger.log("connectComplete(), will try to re-subscribe to topics");
+        Logger.log( s);
+
+        Iterator<Map.Entry<String, Map<String, Subscription>>> iterator = subscriptions.entrySet().iterator();
+
+        while (iterator.hasNext()) {
+            Map.Entry<String, Map<String, Subscription>> next = iterator.next();
+
+            Iterator<Map.Entry<String, Subscription>> innerIter = next.getValue().entrySet().iterator();
+            while (innerIter.hasNext()) {
+                Subscription sub = innerIter.next().getValue();
+
+                try {
+                    this.client.subscribe(sub.getTopic(), 1, null, new IUbiActionListener() {
+                        @Override
+                        public void onSuccess(IMqttToken iMqttToken) {
+                            Logger.log("re-subscribed to topic successfully: " + sub.getTopic());
+                        }
+
+                        @Override
+                        public void onFailure(IMqttToken iMqttToken, Throwable throwable) {
+                            Logger.log("failed to re-subscribe to topic: " + sub.getTopic());
+                        }
+                    }, messageListener);
+                }
+                catch (Exception e) {
+                    Logger.log(e.toString());
+                }
+            }
+        }
+    }
+
+    @Override
+    public void connectionLost(Throwable throwable) {
+        Logger.log("connectionLost()");
+    }
+
+    @Override
+    public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
+        //Logger.log( mqttMessage.toString());
+    }
+
+    @Override
+    public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
+        //Logger.log("deliveryComplete()");
+    }
+
+    // MqttCallbackExtended implementation ends
 
     private ArrayList<Map.Entry<String,Subscription>> getSubscriptionsForTopic(String topic) {
         ArrayList<Map.Entry<String,Subscription> > ret = new ArrayList<Map.Entry<String, Subscription> >();
@@ -194,10 +251,11 @@ public class UbiMqtt {
             this.client = new MqttAsyncClient(serverAddress, clientId, new MemoryPersistence());
 
             MqttConnectOptions mqttClientOptions = new MqttConnectOptions();
-            mqttClientOptions.setCleanSession(false);
+            mqttClientOptions.setCleanSession(true);
             mqttClientOptions.setAutomaticReconnect(true);
 
-            this.client.connect(mqttClientOptions, actionListener);
+            this.client.setCallback(this);
+            this.client.connect(mqttClientOptions,this, actionListener);
         } catch (MqttException e) {
             actionListener.onFailure(null, e);
         }
